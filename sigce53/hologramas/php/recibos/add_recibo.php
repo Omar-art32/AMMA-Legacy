@@ -16,6 +16,7 @@ $anio_r = $grales['anio_recibo'];
 
 $sqlNoRecibo = "select if(max(id_recibo) is null,0,max(id_recibo))  from h_salidas where anio_rcbo=$anio_r";
 
+
 $result = $conexion->query($sqlNoRecibo);
 $row = $result->fetch_row();
 $recibo = $row[0] + 1;
@@ -219,8 +220,68 @@ try
         } 
 
         
-        $sql_ins = "INSERT INTO h_salidas (id_recibo, anio_rcbo, no_cliente, marca, serie,edo,tipo, solicitud, destino, fecha_entr, fi1, ff1, m1, fol_m1, fol_m1_num, motivo, obs_ent, se1, f_cap, linea, usr, cliente_crm) VALUES
-					('{$recibo}', '{$anio_r}', '{$cliente}', '{$marca}', '{$serie}','{$edo}','{$tipo}', '{$sol}', '{$destino}', '{$fecha_e}', '{$fi}', '{$ff}','{$mermas}', '{$fol_m1}', '{$fol_m1_num}', '{$motivo_merma}', '{$obs_ent}', '{$total}', '{$fecha}', '0',  '{$usr}', '".$arr_det[$x]['cliente_crm']."');";
+        $sql_ins = "INSERT INTO h_salidas (
+                id_recibo,
+                anio_rcbo,
+                no_cliente,
+                marca,
+                serie,
+                edo,
+                tipo,
+                solicitud,
+                destino,
+                fecha_entr,
+                fi1,
+                ff1,
+                m1,
+                fol_m1,
+                fol_m1_num,
+                motivo,
+                obs_ent,
+                m2,
+                fol_m2_num,
+                motivo2,
+                se1,
+                observ,
+                f_cap,
+                linea,
+                usr,
+                usr_sinc,
+                dif,
+                cliente_crm
+            ) VALUES (
+                '{$recibo}',
+                '{$anio_r}',
+                '{$cliente}',
+                '{$marca}',
+                '{$serie}',
+                '{$edo}',
+                '{$tipo}',
+                '{$sol}',
+                '{$destino}',
+                '{$fecha_e}',
+                '{$fi}',
+                '{$ff}',
+                '{$mermas}',
+                '{$fol_m1}',
+                '{$fol_m1_num}',
+                '{$motivo_merma}',
+                '{$obs_ent}',
+                '{$total}',
+                '',
+                '',
+                '0',
+                '',
+                '{$fecha}',
+                '0',
+                '{$usr}',
+                '',
+                '',
+                '".$arr_det[$x]['cliente_crm']."'
+            );";
+
+        
+        
         if ($borrar_fila == 1) {
             $sql_existencias = "delete from h_existencias where id_existencias=$id_exs";
         } else {
@@ -524,8 +585,10 @@ try
 
     $nombre = str_replace('/', '_', $id_recibo);
     $file = $nombre . '.pdf';
-    $pdf->Output('pdf_recibos/' . $file, 'F');
+    //$pdf->Output('pdf_recibos/' . $file, 'F');
+    $ruta_pdf = __DIR__ . '/pdf_recibos/' . $file;
 
+    $pdf->Output($ruta_pdf, 'F');
     $dir_file = "http://" . $svr_dir . "/hologramas/php/recibos/pdf_recibos/" . $file;
     //Redirect
     //echo json_encode(array('status' => 'correcto','msj'=>$dir_file,'sql'=>utf8_encode($sql_ins)));
