@@ -1,0 +1,171 @@
+<?php
+    include("../../common/conexion.php");
+	  $cad_prod="";
+	  $cad_env="";
+	  $link="";
+    $arrProductores = array();
+    $arrProveedores = array();
+    $arrEnvasadores = array();
+    $arrComercializadores = array();
+    $arrMarcasEnv = array();
+    $arrCliente = array();
+
+	  try {
+      $no_cliente=$_POST["cliente"];
+		  $tipo_c=$_POST["tipoConsulta"];
+      //$conexion->set_charset("utf8");
+		  // $sql_p = "SELECT cr.id,cr.cte_prov, c.nombre from clientes_relaciones cr INNER JOIN clientes c ON c.no_cliente=cr.cte_prov WHERE cr.cte_rec=? AND cr.tipo_rel='P'";
+
+      $sql_p = "SELECT cr.id,if(cr.cte_prov = ?,cr.cte_rec,cr.cte_prov) AS asociado,c.nombre,if(cr.cte_prov = ?,1,0) as rol
+      from clientes_relaciones cr INNER JOIN clientes c ON c.no_cliente=if(cr.cte_prov = ?,cr.cte_rec,cr.cte_prov) WHERE (cr.cte_rec=? OR cr.cte_prov = ?) AND cr.tipo_rel='P'";
+		  $ps_p=$conexion->prepare($sql_p);
+		  $ps_p->bind_param('sssss',$no_cliente,$no_cliente,$no_cliente,$no_cliente,$no_cliente);
+		  if(!$ps_p->execute())throw new Exception('No se pudieron consultar los productores autorizados');
+		  $ps_p->store_result();
+      $nr=$ps_p->num_rows;
+		  $ps_p->bind_result($id,$prov,$nom_prov,$tipo);
+		  while($ps_p->fetch())
+		  {
+        array_push($arrProductores, array("asociado" => $prov, "empresa" => utf8_encode($nom_prov),"tipo" => $tipo));
+		  }
+		  $ps_p->close();
+
+
+      $sql_v = "SELECT cr.id,if(cr.cte_prov = ?,cr.cte_rec,cr.cte_prov) AS asociado,c.nombre,if(cr.cte_prov = ?,1,0) as rol
+      from clientes_relaciones cr INNER JOIN clientes c ON c.no_cliente=if(cr.cte_prov = ?,cr.cte_rec,cr.cte_prov) WHERE (cr.cte_rec=? OR cr.cte_prov = ?) AND cr.tipo_rel='V'";
+      $ps_v=$conexion->prepare($sql_v);
+      $ps_v->bind_param('sssss',$no_cliente,$no_cliente,$no_cliente,$no_cliente,$no_cliente);
+      if(!$ps_v->execute())throw new Exception('No se pudieron consultar los proveedores autorizados');
+      $ps_v->store_result();
+      $np=$ps_v->num_rows;
+      $ps_v->bind_result($id_v,$prov_v,$nom_prov_v,$tipo_prov);
+      while($ps_v->fetch())
+      {
+        array_push($arrProveedores, array("asociado" => $prov_v, "empresa" => utf8_encode($nom_prov_v),"tipo" => $tipo_prov));
+      }
+      $ps_v->close();
+
+      /************************/
+      $sql_em = "SELECT m.no_cliente,m.cve_marca,m.marca,c.nombre
+                   FROM clientes_relaciones r
+              LEFT JOIN marcas m ON m.no_cliente = r.cte_rec AND (m.clave = r.num_marca OR m.cve_marca = r.marca)
+             INNER JOIN clientes c ON c.no_cliente = m.no_cliente  WHERE  r.cte_prov = ?  AND r.tipo_rel='E';";
+      $ps_em=$conexion->prepare($sql_em);
+      $ps_em->bind_param('s',$no_cliente);
+      if(!$ps_em->execute())throw new Exception('No se pudieron consultar las marcas que envasa');
+      $ps_em->store_result();
+      // $np=$ps_v->num_rows;
+      $ps_em->bind_result($em_cliente,$em_clave,$em_marca,$em_empresa);
+      while($ps_em->fetch())
+      {
+        array_push($arrMarcasEnv, array("asociado" => $em_cliente,"clave"=>$em_clave,"marca" => utf8_encode($em_marca),"empresa" => utf8_encode($em_empresa)));
+      }
+      $ps_em->close();
+      /************************/
+
+
+
+      $sql_cli = "SELECT mezcalero,envasador,comercializador,nombre from clientes  WHERE no_cliente=?";
+		  $ps_cli=$conexion->prepare($sql_cli);
+		  $ps_cli->bind_param('s',$no_cliente);
+		  if(!$ps_cli->execute())throw new Exception('No se pudieron consultar los datos del asociado');
+		  $ps_cli->store_result();
+		  $ps_cli->bind_result($esProductor,$esEnvasador,$esComercializador,$nom_emp);
+      $ps_cli->fetch();
+		  $ps_cli->close();
+
+      if ($esProductor == 1) {
+        array_push($arrProductores,array("asociado" => $no_cliente, "empresa" => utf8_encode($nom_emp)));
+      }
+
+
+      $sql_marcas = "SELECT m.cve_marca,m.marca,c.nombre,m.clave FROM marcas m INNER JOIN clientes c ON c.no_cliente = m.no_cliente WHERE m.no_cliente = ?;";
+		  $ps_marcas=$conexion->prepare($sql_marcas);
+		  $ps_marcas->bind_param('s',$no_cliente);
+		  if(!$ps_marcas->execute())throw new Exception('No se pudieron consultar las marcas autorizadas');
+		  $ps_marcas->store_result();
+      $nr_m=$ps_marcas->num_rows;
+		  $ps_marcas->bind_result($clave_marca,$Nommarca,$nombreEmpresa,$num_marca);
+      $count =0;
+		  while($ps_marcas->fetch())
+		  {
+        $arrEnvasadores[$count] =  array();
+        $arrComercializadores[$count] =  array();
+
+        // ***************SECCION PARA OBTENER A LOS ENVASADORES
+       $flag = true;
+       $sql_e = "SELECT cr.id,cr.cte_prov, c.nombre,cr.marca,m.marca from clientes_relaciones cr INNER JOIN clientes c ON c.no_cliente=cr.cte_prov 
+       INNER JOIN marcas m ON m.no_cliente=cr.cte_rec AND m.no_cliente = cr.cte_rec AND (m.clave = cr.num_marca OR m.cve_marca = cr.marca) WHERE cr.cte_rec=? AND (cr.marca = ? OR cr.num_marca=?) AND cr.tipo_rel='E'";
+       
+       //echo $sql_e;
+       $ps_e=$conexion->prepare($sql_e);
+       $ps_e->bind_param('sss',$no_cliente,$clave_marca,$num_marca);
+       if(!$ps_e->execute())throw new Exception('No se pudieron consultar los proveedores autorizados');
+       $ps_e->store_result();
+       $nr_e=$ps_e->num_rows;
+       $ps_e->bind_result($id_e,$prov_e,$nom_prov_e,$cve,$n_marca);
+       $env_count = 0;
+       if ($flag && $esEnvasador == 1) {
+          array_push($arrEnvasadores[$count],array("asociado" => $no_cliente, "empresa" => utf8_encode($nom_emp),"marca"=>utf8_encode($n_marca)));
+       }
+       while($ps_e->fetch())
+       {
+          array_push($arrEnvasadores[$count],array("asociado" => $prov_e, "empresa" => utf8_encode($nom_prov_e),"marca"=>utf8_encode($n_marca)));
+          $env_count++;
+       }
+       $ps_e->close();
+
+
+       // ***************SECCION PARA OBTENER A LOS COMERCIALIZADORES
+       $sql_comer = "SELECT c.no_cliente,m.cve_marca,m.marca,c.nombre FROM marcas m INNER JOIN clientes c ON c.no_cliente = m.no_cliente WHERE m.marca = ?";
+       $ps_coner=$conexion->prepare($sql_comer);
+       $ps_coner->bind_param('s',$Nommarca);
+       if(!$ps_coner->execute())throw new Exception('No se pudieron consultar los comercializadores autorizados');
+       $ps_coner->store_result();
+       $nr_comer=$ps_coner->num_rows;
+       $ps_coner->bind_result($cliente_comer,$clv_marca,$marca_comer,$nom_empresa);
+       while($ps_coner->fetch())
+       {
+          array_push($arrComercializadores[$count], array("asociado" => $cliente_comer, "empresa" => utf8_encode($nom_empresa),"marca"=>utf8_encode($marca_comer)));
+       }
+       $ps_coner->close();
+      array_push($arrCliente, array("marca" => utf8_encode($marca_comer), "envasadores"=>$arrEnvasadores[$count],"comercializadores"=>$arrComercializadores[$count]));
+       $count ++;
+		  }
+
+		  $ps_marcas->close();
+
+      if (count($arrCliente) == 0) {
+        $arrCliente = [];
+      }
+		  $conexion->close();
+    echo json_encode(array("status" =>"OK", "marcas"=>$arrCliente,"productores" => $arrProductores,"proveedores"=>$arrProveedores,"marcasEnv" => $arrMarcasEnv)/*"comer_obj"=>$arrComercializadores,"prod_obj"=>$arrProductores,"env_obj"=>$arrEnvasadores,"esProductor"=>($esProductor=='1')?true:false,"esEnvasador"=>($esEnvasador=='1')?true:false,"esComercializador"=>($esComercializador=='1')?true:false)*/);
+      switch(json_last_error()) {
+            case JSON_ERROR_NONE:
+
+            break;
+            case JSON_ERROR_DEPTH:
+                echo ' - Excedido tamaño máximo de la pila';
+            break;
+            case JSON_ERROR_STATE_MISMATCH:
+                echo ' - Desbordamiento de buffer o los modos no coinciden';
+            break;
+            case JSON_ERROR_CTRL_CHAR:
+                echo ' - Encontrado carácter de control no esperado';
+            break;
+            case JSON_ERROR_SYNTAX:
+                echo ' - Error de sintaxis, JSON mal formado';
+            break;
+            case JSON_ERROR_UTF8:
+                echo ' - Caracteres UTF-8 malformados, posiblemente están mal codificados';
+            break;
+            default:
+                echo ' - Error desconocido';
+            break;
+        }
+    }
+	  catch (Exception $e) {
+		  echo json_encode(array("status" => "error", "msj" => "Error en la base de datos: " . $e->getMessage()));
+		  $conexion->close();
+	  }
+?>

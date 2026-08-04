@@ -1,0 +1,8 @@
+.git
+.gitignore
+README.md
+docs
+tools
+vendor
+node_modules
+

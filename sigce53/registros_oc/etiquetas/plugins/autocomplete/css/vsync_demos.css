@@ -1,0 +1,23 @@
+html, body{ min-height:100%; }
+body{
+    font:14px Arial; margin:0;
+    background-image  : linear-gradient(to left, #F3F3F3 100%, transparent 0%);
+    background-repeat : no-repeat;
+    background-size   : 50% 1000%;
+    overflow-x:hidden;
+} /* display:flex; flex-flow: column nowrap; align-items:center; justify-content:center; */
+
+.forkLink img{ position:absolute; border:0; right:-10px; top:-10px; transition:.15s ease-out; }
+.forkLink:hover img{ filter: brightness(1.5); top:0; right:0; }
+
+section{ clear:both; }
+aside{ padding:3em; box-sizing:border-box; width:50%; }
+section > .leftSide{ float:left;  }
+section > .rightSide{ float:left; }
+
+h2{ text-transform:uppercase; font-size:2em; }
+h3{ color:#777; font-size:1.2em; margin:0 0 5px; }
+xmp, pre{ white-space:normal; padding:8px; background:white; color:navy; border-radius:4px; }
+pre{ white-space:pre; overflow:auto; }
+
+            

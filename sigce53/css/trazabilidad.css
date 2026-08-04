@@ -1,0 +1,13 @@
+.divFiltros{
+  font-size: 13px;
+    border: 1px solid #607d8b3b;
+    background: #f5f5f54d;
+    padding: 15px 15px;
+    border-radius: 15px;
+    /* background: #d9edf7; */
+    transition: all 0.5s ease;
+    /* -webkit-transition: all 0.5s ease; */
+    /* -webkit-box-shadow: 0px 0px 28px 1px rgba(0, 0, 0, 0.34); */
+    -moz-box-shadow: 0px 0px 28px 1px rgba(0, 0, 0, 0.34);
+    box-shadow: 0px 0px 15px 1px rgba(0, 0, 0, 0.11);
+}

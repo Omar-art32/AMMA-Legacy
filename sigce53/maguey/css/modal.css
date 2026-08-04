@@ -1,0 +1,17 @@
+/* CSS used here will be applied after bootstrap.css */
+.modal-header-success {
+    color:#cccccc;
+    padding:9px 15px;
+    background-color: #166065;
+    /*border-bottom:1px solid #eee;
+    */
+    -webkit-border-top-left-radius: 5px;
+    -webkit-border-top-right-radius: 5px;
+    -moz-border-radius-topleft: 5px;
+    -moz-border-radius-topright: 5px;
+     border-top-left-radius: 5px;
+     border-top-right-radius: 5px;
+}
+#nomcliente{
+    
+}

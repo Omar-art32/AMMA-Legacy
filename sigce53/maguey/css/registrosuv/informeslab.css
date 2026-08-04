@@ -1,0 +1,50 @@
+.form-horizontal .form-control
+{
+	margin-bottom:7px;
+}
+.form-horizontal .form-group
+{
+	margin-bottom:7px;
+}
+#pnlReportesMain
+{
+	padding: 0 !important;
+}
+#datos_informe .panel
+{
+	margin-bottom:0 !important;
+}
+.txt-tab-center
+{
+	width:100%;
+	text-align:center;
+}
+.table-head
+{
+	text-align:center;
+	padding-top:5px !important;
+	padding-bottom:5px !important;
+	padding-left:15px !important;
+	padding-right:15px !important;
+}
+.fuera-rango
+{
+	font-weight:bold;
+	color:#F00;
+}
+.dentro-rango
+{
+	font-weight:bold;
+	color:#060;
+}
+.no-borde
+{
+	
+	border:none;
+	border-style:none;
+	font-size:18px;
+	font-weight:500;
+	background-color:transparent !important;
+	-webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,0);
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0);
+}

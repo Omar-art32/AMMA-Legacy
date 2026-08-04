@@ -1,0 +1,9 @@
+#pnlInventarioMain .nav-tabs > li > a 
+{
+	background-color:#dcdcdc !important;
+	color:#2F2D2D;
+}
+#pnlInventarioMain .nav-tabs > li.active > a 
+{
+	background-color:#fff !important;
+}

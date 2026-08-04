@@ -1,0 +1,62 @@
+services:
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: amma-legacy-web
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./sigce53:/var/www/html/sigce53
+
+    working_dir: /var/www/html/sigce53
+
+    depends_on:
+      - mariadb
+
+    environment:
+      PHP_IDE_CONFIG: serverName=AMMA
+
+  mariadb:
+    image: mariadb:10.11
+
+    container_name: mariadb101
+    restart: unless-stopped
+
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: amma
+      MARIADB_USER: amma
+      MARIADB_PASSWORD: amma
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+
+    container_name: amma-legacy-pma
+    restart: unless-stopped
+
+    depends_on:
+      - mariadb
+
+    ports:
+      - "8082:80"
+
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+
+volumes:
+  mariadb_data:

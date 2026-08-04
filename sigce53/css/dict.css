@@ -1,0 +1,129 @@
+.checkbox-custom,
+.radio-custom {
+  opacity: 0;
+  position: absolute;
+}
+
+.checkbox-custom,
+.checkbox-custom-label,
+.radio-custom,
+.radio-custom-label {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 5px;
+  cursor: pointer;
+}
+
+.checkbox-custom-label,
+.radio-custom-label {
+  position: relative;
+}
+
+.checkbox-custom + .checkbox-custom-label:before,
+.radio-custom + .radio-custom-label:before {
+  content: "";
+  background: #fff;
+  border: 2px solid #ddd;
+  display: inline-block;
+  vertical-align: middle;
+  width: 30px;
+  height: 30px;
+  padding: 4px;
+  margin-right: 10px;
+  text-align: center;
+}
+
+.checkbox-custom:checked + .checkbox-custom-label:before {
+  content: "\f00c";
+  font-family: "FontAwesome";
+  background: rebeccapurple;
+  color: #fff;
+}
+
+.radio-custom + .radio-custom-label:before {
+  border-radius: 50%;
+}
+
+.radio-custom:checked + .radio-custom-label:before {
+  content: "\f00c";
+  font-family: "FontAwesome";
+  color: green;
+  border: 2px solid green;
+}
+
+.checkbox-custom:focus + .checkbox-custom-label,
+.radio-custom:focus + .radio-custom-label {
+  outline: 1px solid #ddd; /* focus style */
+}
+
+/**/
+.radio-cuadrado {
+  opacity: 0;
+  position: absolute;
+}
+
+.radio-cuadrado,
+.radio-cuadrado-label {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 5px;
+  cursor: pointer;
+}
+
+.radio-cuadrado-label {
+  position: relative;
+}
+
+.radio-cuadrado + .radio-cuadrado-label:before {
+  content: "";
+  background: #fff;
+  border: 2px solid #ddd;
+  display: inline-block;
+  vertical-align: middle;
+  width: 60px;
+  height: 60px;
+  padding: 20px;
+  margin-right: 10px;
+  text-align: center;
+}
+
+.radio-cuadrado:checked + .radio-cuadrado-label:before {
+  content: "\f00c";
+  font-family: "FontAwesome";
+  color: green;
+  border: 2px solid green;
+}
+
+.radio-cuadrado:focus + .radio-cuadrado-label {
+  outline: 1px solid #ddd; /* focus style */
+}
+
+.table > thead > tr > td.revision,
+.table > tbody > tr > td.revision,
+.table > tfoot > tr > td.revision,
+.table > thead > tr > th.revision,
+.table > tbody > tr > th.revision,
+.table > tfoot > tr > th.revision,
+.table > thead > tr.revision > td,
+.table > tbody > tr.revision > td,
+.table > tfoot > tr.revision > td,
+.table > thead > tr.revision > th,
+.table > tbody > tr.revision > th,
+.table > tfoot > tr.revision > th {
+  background-color: #b6dfe8;
+}
+
+.table > thead > tr > td.qr,
+.table > tbody > tr > td.qr,
+.table > tfoot > tr > td.qr,
+.table > thead > tr > th.qr,
+.table > tbody > tr > th.qr,
+.table > tfoot > tr > th.qr,
+.table > thead > tr.qr > td,
+.table > tbody > tr.qr > td,
+.table > tfoot > tr.qr > td,
+.table > thead > tr.qr > th,
+.table > tbody > tr.qr > th,
+.table > tfoot > tr.qr > th {
+  background-color: #84bdac;
+}

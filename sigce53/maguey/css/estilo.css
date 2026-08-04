@@ -1,0 +1,48 @@
+@charset "utf-8";
+/* CSS Document */
+
+#map-canvas	{
+	width:830px;
+	height:500px;
+}
+
+table{
+	margin: 0px auto 20px auto;
+	border-collapse: collapse;
+}
+
+table thead tr th{
+	font-weight: normal;
+}
+
+table tbody tr td, table tfoot tr td, table thead tr th{
+	padding: 6px;
+	vertical-align: top;
+}
+
+table tfoot tr td{
+	text-align: right;
+}
+
+table.lista tbody tr td{
+	border-bottom: 1px solid #ddd;
+}
+
+table.lista thead th, table.formulario thead th{
+	color: #369;
+	border-bottom: 1px solid #CCC;
+}
+
+table.lista tfoot td, table.formulario tfoot td{
+	color: #369;
+}
+
+table.formulario tfoot td{
+	border-top: 1px solid #CCC;
+}
+.panel-pincipal{
+  background-color: #3c7d34;
+}
+.text-white{
+  color: #fbfbfb;
+}
