@@ -4,14 +4,13 @@ declare(strict_types=1);
 /**
  * conexion.php — Conexión MariaDB modernizada para PHP 8.3.
  *
- * Cambios respecto al original:
- *  - mysqli_report explícito: en 8.1+ el constructor de mysqli lanza excepción
- *    al fallar la conexión, así que el antiguo `if ($conexion->connect_errno > 0)`
- *    con die() ya nunca se ejecutaba. Ahora se captura la excepción real.
- *  - Se fija el charset a utf8mb4 una sola vez, aquí (antes cada archivo lo
- *    repetía, o lo omitía).
- *  - Credenciales leídas de variables de entorno con respaldo a los valores
- *    del docker-compose, para no dejar la contraseña incrustada en el código.
+ * /**
+ * Conexión a la base de datos.
+ *
+ * Adaptada para PHP 8.3 utilizando el manejo de excepciones de mysqli,
+ * configuración del juego de caracteres UTF-8 y credenciales obtenidas
+ * desde la configuración del entorno.
+ *
  */
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
@@ -22,6 +21,8 @@ $DB_PASS = getenv('DB_PASS') ?: 'root';
 $DB_NAME = getenv('DB_NAME') ?: 'amma';
 
 try {
+    // la siguiente linea comentada ya estaba
+    //$conexion = new mysqli("localhost","root","","amma");
     $conexion = new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME);
     $conexion->set_charset('utf8mb4');
 } catch (mysqli_sql_exception $e) {

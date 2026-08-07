@@ -84,11 +84,15 @@
           contentType: 'application/x-www-form-urlencoded;charset=UTF-8',
           data: 'user=' + username + '&pswd=' + passworde + '&tipoCon=' + document.domain + '&protocol=' + location.protocol,
           dataType: 'json',
+          // La respuesta ya llega como objeto JSON porque entrar.php envía la cabecera
+          // application/json. Por ello no debe utilizarse JSON.parse(data).
           success: function (data) {
             // data = JSON.parse(data);
             if (data.status === 'OK') {
+              // 'msj' contiene la URL de destino.
               $(location).attr('href', data.msj);
             } else {
+              // 'msj' contiene el mensaje de error.
               $('.log-status').addClass('wrong-entry');
               $('.alert').html(data.msj);
               $('.alert').fadeIn(500);

@@ -4,10 +4,11 @@ declare(strict_types=1);
 /**
  * config.php — Configuración centralizada de rutas del proyecto.
  *
- * ÚNICO lugar donde se define el nombre/ruta base de la aplicación.
- * Antes, la cadena '/sigce53' estaba hardcodeada en entrar.php, y '/sigce'
- * (mal) en cerrar.php. Si mañana cambia la carpeta de despliegue, ahora
- * solo se toca esta línea.
+ * 
+ * Configuración general del proyecto.
+ *
+ * Define la ruta base de la aplicación para evitar valores
+ * fijos en distintos archivos y facilitar cambios de despliegue.
  *
  * Reemplaza y unifica al antiguo cfg_server.php.
  */

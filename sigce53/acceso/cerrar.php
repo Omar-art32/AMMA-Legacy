@@ -1,16 +1,12 @@
 <?php
 declare(strict_types=1);
-
 /**
- * cerrar.php — Cierre de sesión.
+ * Cierre de sesión del sistema.
  *
- * CORRECCIÓN DE RUTA: el original redirigía a '/sigce/acceso/login.php'
- * (carpeta inexistente en este despliegue, que vive en /sigce53), por lo que
- * cada logout terminaba en un 404. Ahora se usa una ruta RELATIVA a login.php:
- * como cerrar.php y login.php están en la misma carpeta, el redirect funciona
- * sin importar cómo se llame la carpeta del proyecto ni dónde se despliegue.
+ * Se actualizó la redirección al finalizar la sesión para utilizar una ruta
+ * relativa, evitando dependencias con el nombre de la carpeta del proyecto
+ * y mejorando la compatibilidad entre distintos entornos de despliegue.
  */
-
 session_start();
 
 $d_s = $_GET['d_s'] ?? '';

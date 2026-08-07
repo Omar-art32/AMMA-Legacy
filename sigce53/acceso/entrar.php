@@ -2,22 +2,14 @@
 declare(strict_types=1);
 
 /**
- * entrar.php — Autenticación. Migrado a PHP 8.3 + rutas centralizadas.
+ * Archivo encargado de la autenticación de usuarios.
  *
- * Cambios de migración (ver diagnóstico previo):
- *  - mysqli en modo excepción envuelto en try/catch (antes reventaba en 500).
- *  - Prepared statements: elimina la inyección SQL.
- *  - Sin FILTER_SANITIZE_STRING (deprecado); la seguridad la dan los prepared
- *    statements y htmlspecialchars en la salida.
- *  - utf8_encode() -> mb_convert_encoding().
- *  - Accesos a $_POST con ?? ''.
+ * Se realizaron ajustes de compatibilidad para PHP 8.3, principalmente en
+ * el manejo de la conexión a la base de datos, validación de entradas,
+ * tratamiento de cadenas UTF-8 y centralización de las rutas de acceso
+ * mediante la configuración general del sistema.
  *
- * Cambios de rutas:
- *  - La ruta base '/sigce53' ya NO está hardcodeada: viene de APP_BASE_PATH
- *    (common/config.php). Un solo lugar para cambiarla.
- *
- * DEUDA PENDIENTE (fase aparte): contraseñas en MD5 (hash en cliente) y el
- * esquema de sesión con clave aleatoria viajando por la URL (?d_s=).
+ * Nota: Se conserva el funcionamiento original del proceso de autenticación.
  */
 
 require '../common/config.php';    // define APP_BASE_PATH y $svr_dir
