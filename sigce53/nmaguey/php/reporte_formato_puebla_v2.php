@@ -19,7 +19,7 @@ function pdf_txt($value)
                 return $converted;
             }
         }
-        return utf8_decode($value);
+        return mb_convert_encoding($value, 'ISO-8859-1', 'UTF-8');
     }
 
     return $value;
