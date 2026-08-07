@@ -1,10 +1,30 @@
 <?php
-session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
+/**
+ * registro.php — Pantalla "Atributos" (Predios y Viveros). Cabecera migrada a 8.3.
+ *
+ * Cambios (mismos patrones aplicados en acceso/ e index.php):
+ *  - Usa common/config.php en vez de reconstruir $svr_dir y $protocolo a mano.
+ *  - Redirect corregido: apuntaba a "/sigce/" (404) -> ahora usa APP_BASE_PATH.
+ *  - Dominio de cookie sin puerto (HTTP_HOST puede traer :puerto e invalidarla).
+ *  - $_GET['d_s'] con ?? '' para no emitir warning si falta el parametro.
+ */
+
+require_once('../common/config.php');   // define APP_BASE_PATH, $svr_dir, $protocolo_actual
+
+$cookie_domain = preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? '');
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'domain'   => $cookie_domain,
+    'secure'   => ($protocolo_actual === 'https:'),
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 session_start();
+
 $mod = 1;
-$d_s = $_GET['d_s'];
-$svr_dir   = $_SERVER["HTTP_HOST"];
-$protocolo = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+$d_s = $_GET['d_s'] ?? '';
+
 if (isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_6"] == "logged") {
 ?>
 <!DOCTYPE html>
@@ -254,42 +274,20 @@ if (isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_6"] == "logged") {
             </div>
             <style>
               .slow .toggle-group { transition: left 0.7s; -webkit-transition: left 0.7s; }
-
               .glyphicon-refresh-animate {
                   -animation: spin .7s infinite linear;
                   -webkit-animation: spin2 .7s infinite linear;
               }
-
               @-webkit-keyframes spin2 {
                   from { -webkit-transform: rotate(0deg);}
                   to { -webkit-transform: rotate(360deg);}
               }
-
-              @keyframes spin {
-                  from { transform: scale(1) rotate(0deg);}
-                  to { transform: scale(1) rotate(360deg);}
-              }
-
-              .slow .toggle-group { transition: left 0.7s; -webkit-transition: left 0.7s; }
-
-              .glyphicon-refresh-animate {
-                  -animation: spin .7s infinite linear;
-                  -webkit-animation: spin2 .7s infinite linear;
-              }
-
-              @-webkit-keyframes spin2 {
-                  from { -webkit-transform: rotate(0deg);}
-                  to { -webkit-transform: rotate(360deg);}
-              }
-
               @keyframes spin {
                   from { transform: scale(1) rotate(0deg);}
                   to { transform: scale(1) rotate(360deg);}
               }
             </style>
             <div class="form-group">
-
-            
               <div class="col-sm-offset-1 col-sm-2">
                 <div class="checkbox" id="paso1">
                   <input type="checkbox" checked data-toggle="toggle1" data-style="slow" data-size="small" data-on="Sí" data-off="No" data-onstyle="success" data-offstyle="default">
@@ -560,6 +558,8 @@ if (isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_6"] == "logged") {
 </html>
 <?php
 } else {
-    header("location: ".$protocolo.$svr_dir."/sigce/acceso/login.php");
+    // Antes: "/sigce/acceso/login.php" (404). Ahora ruta correcta via APP_BASE_PATH.
+    header('Location: ' . $protocolo_actual . '//' . $svr_dir . '/acceso/login.php');
+    exit;
 }
 ?>
