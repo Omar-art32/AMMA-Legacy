@@ -1,87 +1,132 @@
 <?php
+/**
+ * MÓDULO: Control de Accesos (acceso.php)
+ * ACTUALIZACIÓN: Migración a PHP 8.3
+ * Cambios realizados para compatibilidad con PHP 8.3:
+ * 
+ * 1. Casteo explícito de tipos:
+ *    - Conversión forzada a (int) en las entradas $_POST ($clvuser, $modulo, $seccion)
+ *      para cumplir con el tipado estricto.
+ * 
+ * 2. Manejo de variables y arreglos:
+ *    - Implementación del operador Null Coalescing (??) para prevenir 
+ *      errores/warnings por "Undefined array key" en peticiones AJAX.
+ * 
+ * 3. Optimización de lógica de horarios:
+ *    - Agrupación explícita en la evaluación del operador condicional if/else.
+ *    - Validación previa a la instanciación de DateTime() para prevenir errores 
+ *      con valores nulos (null).
+ * 
+ * 4. Manejo de base de datos y transacciones:
+ *    - Reestructuración del manejo de excepciones con try-catch-finally.
+ *    - Implementación de rollback() en caso de fallos y garantía de cierre 
+ *      de conexión $conexion->close() únicamente cuando existe un objeto válido.
+ * 
+ * 5. Respuestas AJAX:
+ *    - Adición del encabezado 'Content-Type: application/json; charset=utf-8'
+ *      y estandarización de las estructuras json_encode.
+ */
 session_start();
 
 require_once "funciones_comunes.php";
 
 if (is_ajax()) {
-    if (isset($_POST["action"]) && !empty($_POST["action"])) {
-        $action = $_POST["action"];
-        switch ($action) {
-            case "registrarAcceso":registrarAcceso();
-                break;
-            case "verificarAcceso":verificarAcceso();
-                break;
-        }
+    $action = $_POST["action"] ?? '';
+    switch ($action) {
+        case "registrarAcceso":
+            registrarAcceso();
+            break;
+        case "verificarAcceso":
+            verificarAcceso();
+            break;
     }
 }
 
-function is_ajax()
+function is_ajax(): bool
 {
-    return isset($_SERVER["HTTP_X_REQUESTED_WITH"]) && strtolower($_SERVER["HTTP_X_REQUESTED_WITH"]) == "xmlhttprequest";
+    return isset($_SERVER["HTTP_X_REQUESTED_WITH"]) && strtolower($_SERVER["HTTP_X_REQUESTED_WITH"]) === "xmlhttprequest";
 }
 
-function registrarAcceso()
+function registrarAcceso(): void
 {
-    $clvuser = $_POST["clvuser"];
-    $modulo = $_POST["modulo"];
-    $seccion = $_POST["seccion"];
+    header('Content-Type: application/json; charset=utf-8');
 
-    try
-    {
+    // Casteo explícito a enteros para PHP 8.3
+    $clvuser = (int)($_POST["clvuser"] ?? 0);
+    $modulo  = (int)($_POST["modulo"] ?? 0);
+    $seccion = (int)($_POST["seccion"] ?? 0);
 
+    $conexion = null;
+
+    try {
         include "../common/conexion.php";
+        
+        if (!$conexion) {
+            throw new Exception("Error al conectar con la base de datos.");
+        }
+
         $conexion->autocommit(false);
 
-        $sql = "INSERT INTO a_accesos(id_us,id_mod,num_sec,fecha)VALUES(?,?,?,NOW())";
+        $sql = "INSERT INTO a_accesos(id_us, id_mod, num_sec, fecha) VALUES (?, ?, ?, NOW())";
         $ps = $conexion->prepare($sql);
         $ps->bind_param("iii", $clvuser, $modulo, $seccion);
+
         if (!$ps->execute()) {
-            throw new Exception("Error al agregar el registro en la tabla de clientes.");
+            throw new Exception("Error al insertar el registro de acceso.");
         }
 
         $ps->close();
-
         $conexion->commit();
-        echo json_encode(array("status" => "correcto", "msj" => "Acceso Registrado."));
-        $conexion->close();
 
-    } catch (mysqli_sql_exception $e) {
-        echo json_encode(array("status" => "error", "msj" => "Error en la base de datos: " . $e->getMessage()));
-        $conexion->close();
+        echo json_encode(["status" => "correcto", "msj" => "Acceso Registrado."]);
+
+    } catch (Exception $e) {
+        if ($conexion && $conexion->connect_errno === 0) {
+            $conexion->rollback();
+        }
+        echo json_encode(["status" => "error", "msj" => "Error: " . $e->getMessage()]);
+    } finally {
+        if ($conexion) {
+            $conexion->close();
+        }
     }
-
 }
 
-function verificarAcceso()
+function verificarAcceso(): void
 {
+    header('Content-Type: application/json; charset=utf-8');
 
-    $clvuser = $_POST["clvuser"];
+    $clvuser = (int)($_POST["clvuser"] ?? 0);
+    $conexion = null;
 
-    try
-    {
-
+    try {
         include "../common/conexion.php";
+
+        if (!$conexion) {
+            throw new Exception("Error de conexión.");
+        }
+
         $conexion->autocommit(false);
         $time = time();
-        $fecha = date("Y-m-d", $time);
         $horaActual = date("H:i:s", $time);
         $dia = date("l", $time);
 
-        $sql = "SELECT 	
-        a_usuarios.horaInicial_l_v,
-        a_usuarios.horaFinal_l_v,
-        a_usuarios.horaInicial_s,
-        a_usuarios.horaFinal_s,
-        a_usuarios.horaInicial_d,
-        a_usuarios.horaFinal_d,
-        a_usuarios.fines_semana
-		FROM a_usuarios
-		WHERE a_usuarios.id_us= ?";
+        $sql = "SELECT 
+                    a_usuarios.horaInicial_l_v,
+                    a_usuarios.horaFinal_l_v,
+                    a_usuarios.horaInicial_s,
+                    a_usuarios.horaFinal_s,
+                    a_usuarios.horaInicial_d,
+                    a_usuarios.horaFinal_d,
+                    a_usuarios.fines_semana
+                FROM a_usuarios
+                WHERE a_usuarios.id_us = ?";
 
         $ps = $conexion->prepare($sql);
         $ps->bind_param("i", $clvuser);
+
         if (!$ps->execute()) {
-            throw new Exception("Error al verificarAcceso.");
+            throw new Exception("Error al verificar acceso del usuario.");
         }
 
         $ps->bind_result(
@@ -93,56 +138,65 @@ function verificarAcceso()
             $horaFinal_d,  
             $fines_semana
         );
-        $ps->store_result();
-        $num_rows = $ps->num_rows;
-        $ps->fetch();
+
+        $num_rows = 0;
+        if ($ps->fetch()) {
+            $num_rows = 1;
+        }
         $ps->close();
-        
+
         if ($num_rows > 0) {
+            $fines_semana = (int)($fines_semana ?? 0);
+            $esSemana = in_array($dia, ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], true);
 
-            if(
-                ($dia == "Monday" || $dia == "Tuesday" || $dia == "Wednesday" || $dia == "Thursday" || $dia == "Friday") && ($horaActual >= $horaInicial_l_v && $horaActual <= $horaFinal_l_v) || 
-                ($dia == "Saturday") && ( ($fines_semana == 1) && $horaActual >= $horaInicial_s && $horaActual <= $horaFinal_s) || 
-                ($dia == "Sunday") && ( ($fines_semana == 1) && $horaActual >= $horaInicial_d && $horaActual <= $horaFinal_d) 
-            ){
+            $dentroDeHorario = false;
+            $horaFinal = null;
 
-                if($dia == "Monday" || $dia == "Tuesday" || $dia == "Wednesday" || $dia == "Thursday" || $dia == "Friday"){
-                    $horaFinal = $horaFinal_l_v;
-                } else if ($dia == "Saturday") {
-                    $horaFinal = $horaFinal_s;
-                } else if ($dia == "Sunday") {
-                    $horaFinal = $horaFinal_d;
-                }
+            if ($esSemana && ($horaActual >= $horaInicial_l_v && $horaActual <= $horaFinal_l_v)) {
+                $dentroDeHorario = true;
+                $horaFinal = $horaFinal_l_v;
+            } else if ($dia === "Saturday" && $fines_semana === 1 && ($horaActual >= $horaInicial_s && $horaActual <= $horaFinal_s)) {
+                $dentroDeHorario = true;
+                $horaFinal = $horaFinal_s;
+            } else if ($dia === "Sunday" && $fines_semana === 1 && ($horaActual >= $horaInicial_d && $horaActual <= $horaFinal_d)) {
+                $dentroDeHorario = true;
+                $horaFinal = $horaFinal_d;
+            }
 
-                $horaActual = new DateTime($horaActual); //fecha inicial
-                $horaFinal = new DateTime($horaFinal); //fecha de cierre
+            if ($dentroDeHorario && $horaFinal) {
+                $dtActual = new DateTime($horaActual);
+                $dtFinal  = new DateTime($horaFinal);
 
-                $intervalo = $horaActual->diff($horaFinal);
-                $horas = $intervalo->format('%h');
+                $intervalo = $dtActual->diff($dtFinal);
+                $horas   = $intervalo->format('%h');
                 $minutos = $intervalo->format('%i');
 
-                echo json_encode(array("status" => "dentro", "msj" => "Dentro de horario.", "horas" => $horas, "minutos" => $minutos));
-
-            } else if (($dia == "Saturday" || $dia == "Sunday") && ($fines_semana == 0)) {
-
-                echo json_encode(array("status" => "fuera", "msj" => "Acceso Restringido."));
-
+                echo json_encode([
+                    "status"  => "dentro", 
+                    "msj"     => "Dentro de horario.", 
+                    "horas"   => $horas, 
+                    "minutos" => $minutos
+                ]);
+            } else if (in_array($dia, ["Saturday", "Sunday"], true) && $fines_semana === 0) {
+                echo json_encode(["status" => "fuera", "msj" => "Acceso Restringido."]);
             } else {
-
-                echo json_encode(array("status" => "fuera", "msj" => "Fuera de horario."));
+                echo json_encode(["status" => "fuera", "msj" => "Fuera de horario."]);
             }
-            
 
         } else {
-            echo json_encode(array("status" => "fuera", "msj" => "Fuera de horario."));
+            echo json_encode(["status" => "fuera", "msj" => "Usuario no encontrado o sin horario."]);
         }
 
         $conexion->commit();
-        $conexion->close();
 
-    } catch (mysqli_sql_exception $e) {
-        echo json_encode(array("status" => "error", "msj" => "Error en la base de datos: " . $e->getMessage()));
-        $conexion->close();
+    } catch (Exception $e) {
+        if ($conexion && $conexion->connect_errno === 0) {
+            $conexion->rollback();
+        }
+        echo json_encode(["status" => "error", "msj" => "Error en la base de datos: " . $e->getMessage()]);
+    } finally {
+        if ($conexion) {
+            $conexion->close();
+        }
     }
-
 }
