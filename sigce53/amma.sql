@@ -58,6 +58,91 @@ CREATE TABLE `anios_sumados` (
   `anios` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `clientes_correos`
+--
+
+CREATE TABLE `clientes_correos` (
+  `cliente` varchar(10) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `correo` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_spanish2_ci;
+
+--
+-- Volcado de datos para la tabla `clientes_correos`
+--
+
+INSERT INTO `clientes_correos` (`cliente`, `correo`) VALUES
+('C9999', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `clientes_telefonos`
+--
+
+CREATE TABLE `clientes_telefonos` (
+  `cliente` text COLLATE utf8_unicode_ci NOT NULL,
+  `telefono` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `clientes_telefonos`
+--
+
+INSERT INTO `clientes_telefonos` (`cliente`, `telefono`) VALUES
+('C9996', 2),
+('C9996', 3),
+('C0001', 5),
+('C0002', 7),
+('C0005', 6),
+('C0007', 8),
+('C0007', 9),
+('C9999', 13),
+('C9999', 14),
+('C9998', 16);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `correos_electronicos`
+--
+
+CREATE TABLE `correos_electronicos` (
+  `id` int(11) NOT NULL,
+  `correo` text COLLATE utf8_spanish2_ci,
+  `principal` int(11) DEFAULT NULL,
+  `fecha_agrego` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifico` int(11) DEFAULT NULL,
+  `fecha_modificacion` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_spanish2_ci;
+
+--
+-- Volcado de datos para la tabla `correos_electronicos`
+--
+
+INSERT INTO `correos_electronicos` (`id`, `correo`, `principal`, `fecha_agrego`, `modifico`, `fecha_modificacion`) VALUES
+(1, 'prueba@gmail.com', 1, '2023-07-12 12:03:34', NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `telefonos`
+--
+
+CREATE TABLE `telefonos` (
+  `id` int(11) NOT NULL,
+  `numero` text COLLATE utf8_unicode_ci NOT NULL,
+  `tipo` int(11) NOT NULL COMMENT '0=celular, 1=fijo',
+  `status` int(11) NOT NULL DEFAULT '1' COMMENT '1=sin Validar, 2= validado',
+  `notificacion` int(11) NOT NULL COMMENT '0=Noti. Desact, 1=Noti. Act ',
+  `sms` int(11) NOT NULL DEFAULT '0',
+  `internacional` int(11) NOT NULL DEFAULT '0',
+  `visible` int(11) NOT NULL DEFAULT '1' COMMENT '1:activo, 2: eliminado'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
 --
 -- Volcado de datos para la tabla `anios_sumados`
 --
@@ -19789,6 +19874,27 @@ INSERT INTO `verificadores` (`id_us`, `nombre`, `dpto`, `login`, `password`, `cv
 -- --------------------------------------------------------
 
 --
+-- Volcado de datos para la tabla `telefonos`
+--
+
+INSERT INTO `telefonos` (`id`, `numero`, `tipo`, `status`, `notificacion`, `sms`, `internacional`, `visible`) VALUES
+(1, '9512190554', 0, 1, 1, 1, 0, 1),
+(2, '6575675675', 0, 2, 1, 1, 0, 1),
+(3, '756775675', 1, 2, 0, 0, 0, 1),
+(4, '9512190554', 0, 1, 1, 1, 0, 1),
+(5, '9512119806', 0, 2, 1, 1, 0, 1),
+(6, '9515183020', 1, 1, 0, 0, 0, 1),
+(7, '5680941', 1, 2, 0, 0, 0, 1),
+(8, '9511886986', 0, 2, 1, 1, 0, 1),
+(9, '9515571614', 0, 2, 1, 1, 0, 1),
+(10, '9511137176', 1, 1, 0, 0, 0, 1),
+(11, '9512200465', 0, 1, 1, 1, 0, 1),
+(12, '9516888343', 0, 1, 1, 1, 0, 1),
+(13, '9711697750', 0, 2, 1, 1, 0, 1),
+(14, '9512190554', 0, 2, 0, 1, 0, 1),
+(15, '9512190554', 0, 1, 1, 1, 0, 1),
+(16, '9711697750', 0, 2, 1, 0, 0, 1);
+--
 -- Estructura para la vista `parajes_um`
 --
 DROP TABLE IF EXISTS `parajes_um`;
@@ -20422,6 +20528,38 @@ ALTER TABLE `verificadores`
 --
 ALTER TABLE `localidades`
   ADD CONSTRAINT `municipio` FOREIGN KEY (`MunicipioID`) REFERENCES `municipios` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+
+--
+-- Índices para tablas volcadas
+--
+
+--
+-- Indices de la tabla `correos_electronicos`
+--
+ALTER TABLE `correos_electronicos`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indices de la tabla `telefonos`
+--
+ALTER TABLE `telefonos`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- AUTO_INCREMENT de las tablas volcadas
+--
+
+--
+-- AUTO_INCREMENT de la tabla `correos_electronicos`
+--
+ALTER TABLE `correos_electronicos`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+--
+-- AUTO_INCREMENT de la tabla `telefonos`
+--
+ALTER TABLE `telefonos`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
