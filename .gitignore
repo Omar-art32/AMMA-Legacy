@@ -3,3 +3,4 @@ php.ini
 vendor/
 composer.json
 composer.lock
+.rector-cache
