@@ -1,56 +1,77 @@
 <?php
-//include('php/registro/conexion.php');
-//include('php/registro/conexion_remota.php');
-include("../common/conexion.php");
-$conexion->set_charset("utf8");
-if (isset($_GET['term'])){
-	$return_arr = array();
-    $busca=$_GET['term'];
-    $idus = (isset($_GET['idus']))?$_GET['idus']:0;
-    // ---------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------
-    $sql_conflicto = "";
-    if($idus > 0 ){
-    	$usuario_solicita = $_GET['idus'];
+/**
+ * bus_clientes.php — PHP 8.3
+ * Autocomplete de clientes (jQuery UI). Devuelve JSON.
+ *
+ * Cambios vs 5.6:
+ *  - Sentencia preparada (antes: LIKE '%$_GET[term]%' concatenado → inyección SQL)
+ *  - Lista de conflicto de intereses validada antes de interpolarla en el IN()
+ *  - ?? en lugar de isset()?:, header JSON explícito
+ */
+declare(strict_types=1);
 
-	    $conflicto_intereses = $conexion->prepare("SELECT getConflictoIntereses(?)");
-	    if (!$conflicto_intereses) 
-	        throw new Exception("ERROR AL CONSULTAR CONFLICTO (ERR:001)");
-	    $conflicto_intereses->bind_param("i", $usuario_solicita);
-	    if (!$conflicto_intereses->execute()) 
-	        throw new Exception("ERROR AL CONSULTAR CONFLICTO (ERR:002)");
-	    $conflicto_intereses->store_result();
-	    $conflicto_intereses->bind_result($clientes_conflicto);
-	    $conflicto_intereses->fetch();
-	    $conflicto_intereses->close();
+require_once __DIR__ . '/../common/conexion.php';
 
-	    /**MODIFICAR CONSULTA DEACUERDO A LAS NECECIDADES 
-	     * LA VARIABLE $clientes_conflicto TRAE LOS CLIENTES EN EL SIGUIENTE FORMATO 'C9999','C9998'
-	    */
-	    /*if($usuario_solicita == 1)
-	        $clientes_conflicto = "'C9999','C9998','C0001','C0003','C0249'";*/
+header('Content-Type: application/json; charset=utf-8');
 
-	    $sql_conflicto = ($clientes_conflicto != "") ? " AND (no_cliente NOT IN ({$clientes_conflicto}) )" : "";
-    }
-    // ---------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------
-	$result = $conexion->query("SELECT * FROM clientes WHERE no_cliente like '%".$_GET['term']."%' and nombre !='--' " . $sql_conflicto);
-	// (magueyero = '1' ) AND || no_cliente = 'C0393'
-    // Se obtiene el resultado de la consulta
-    while($row = $result->fetch_array()) {
-	    //$row_array['id'] = $row['id'];
-		$row_array['value'] = $row['no_cliente'];
-		$row_array['abbrev'] = $row['nombre'];
-		$row_array['cliente_crm'] = $row['registro_crm'];
-		//$row_array['abbre'] = $row['tipo_persona'];
-		array_push($return_arr,$row_array);
-	}
-    /* Toss back results as json encoded array. */
-    echo json_encode($return_arr);
+if (!isset($_GET['term'])) {
+    echo json_encode([]);
+    exit;
 }
 
-$conexion->close(); 
+$busca = (string)$_GET['term'];
+$idus  = (int)($_GET['idus'] ?? 0);
 
+$return_arr = [];
 
-?>
+try {
+    // -----------------------------------------------------------------
+    // Conflicto de intereses: la función de BD regresa 'C9999','C9998'
+    // -----------------------------------------------------------------
+    $sql_conflicto = '';
+    if ($idus > 0) {
+        $stmt = $conexion->prepare('SELECT getConflictoIntereses(?)');
+        $stmt->bind_param('i', $idus);
+        $stmt->execute();
+        $stmt->bind_result($clientes_conflicto);
+        $stmt->fetch();
+        $stmt->close();
 
+        // Validamos el formato antes de interpolar en el IN().
+        // Aunque viene de la BD, no lo tratamos como confiable a ciegas.
+        if ($clientes_conflicto !== null && $clientes_conflicto !== ''
+            && preg_match("/^'[A-Za-z0-9]+'(,'[A-Za-z0-9]+')*$/", $clientes_conflicto)) {
+            $sql_conflicto = " AND no_cliente NOT IN ({$clientes_conflicto}) ";
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Búsqueda de clientes
+    // -----------------------------------------------------------------
+    $sql = "SELECT no_cliente, nombre, registro_crm
+            FROM clientes
+            WHERE no_cliente LIKE CONCAT('%', ?, '%')
+              AND nombre != '--' {$sql_conflicto}";
+
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param('s', $busca);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $return_arr[] = [
+            'value'       => $row['no_cliente'],
+            'abbrev'      => $row['nombre'],
+            'cliente_crm' => $row['registro_crm'],
+        ];
+    }
+    $stmt->close();
+
+    echo json_encode($return_arr);
+} catch (mysqli_sql_exception $e) {
+    error_log('[bus_clientes.php] ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['error' => 'Error al consultar clientes']);
+} finally {
+    $conexion->close();
+}
