@@ -2,7 +2,7 @@
 session_start();
 session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
 $mod=1;
-require_once('../common/cfg_server.php');
+require_once(__DIR__ . '/../common/cfg_server.php');
 $d_s=$_GET['d_s'];
 if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_1"] == "logged")
 {
@@ -472,7 +472,7 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_1"] == "logged")
     <script src="js/recibos/recibos.js?<?php echo uniqid(); ?>"></script>
 
 
-    <?php include("../includes/acceso.php");?>
+    <?php include(__DIR__ . "/../includes/acceso.php");?>
 
 </body>
 
