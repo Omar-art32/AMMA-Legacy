@@ -2,7 +2,7 @@
 session_start();
 session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
 $mod=1;
-require_once('../common/cfg_server.php');
+require_once(__DIR__ . '/../common/cfg_server.php');
 $d_s=$_GET['d_s'];
 if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_4"] == "logged")
 {
@@ -569,8 +569,8 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_4"] == "logged")
 	<script src="../js/i18n/grid.locale-es.js"></script>
     <!-- This is the Javascript file of jqGrid -->
     <script src="../js/jquery.jqGrid.min.js"></script>
-    <script src="js/reportes/reportes.js?<?php echo rand();?>"></script>
-    <script src="js/reportes/estadisticas.js?<?php echo rand();?>"></script>
+    <script src="js/reportes/reportes.js?<?php echo random_int(0, mt_getrandmax());?>"></script>
+    <script src="js/reportes/estadisticas.js?<?php echo random_int(0, mt_getrandmax());?>"></script>
 
     <link href="../registros_oc/etiquetas/plugins/bootstrap-table-master/src/bootstrap-table.css" rel="stylesheet">
 
@@ -598,7 +598,7 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_4"] == "logged")
     <script src="../estadoCuenta/js/moment.min.js"></script>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 
-	<?php include("../includes/acceso.php");?>
+	<?php include(__DIR__ . "/../includes/acceso.php");?>
 
 </body>
 
