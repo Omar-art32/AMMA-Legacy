@@ -604,9 +604,8 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_4"] == "logged")
 
 </html>
 <?php
-}
-else
-{
-   header("location: http://".$svr_dir."/sigce/acceso/login.php");
+} else {
+    header("Location: /sigce/acceso/login.php");
+    exit();
 }
 ?>
