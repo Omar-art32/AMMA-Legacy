@@ -1,30 +1,10 @@
 <?php
 session_start();
-
-// [CAMBIO recomendado] session_set_cookie_params() con sintaxis de arreglo
-// en lugar de argumentos posicionales. Mismo comportamiento que el original
-// (lifetime=0, path="/", domain=HTTP_HOST, secure=false, httponly=false),
-// solo se cambió la forma de pasarlos.
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path'     => '/',
-    'domain'   => $_SERVER['HTTP_HOST'],
-    'secure'   => false,
-    'httponly' => false,
-]);
-
-$mod = 1;
-
-// [CAMBIO recomendado] Se ancla la ruta al directorio físico del archivo
-// con __DIR__ en vez de una ruta relativa dependiente del cwd.
-require_once(__DIR__ . '/../common/cfg_server.php');
-
-// [CAMBIO  obligatorio php8] $_GET['d_s'] ahora usa el operador ??
-// para evitar el Warning "Undefined array key" que PHP 8 eleva
-// (antes era un Notice silencioso en muchas configuraciones de PHP 7).
-$d_s = $_GET['d_s'] ?? null;
-
-if (isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_1"] == "logged")
+session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
+$mod=1;
+require_once('../common/cfg_server.php');
+$d_s=$_GET['d_s'];
+if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_1"] == "logged")
 {
 ?>
 <!DOCTYPE html>
@@ -492,7 +472,7 @@ if (isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_1"] == "logged")
     <script src="js/recibos/recibos.js?<?php echo uniqid(); ?>"></script>
 
 
-    <?php include(__DIR__ . "/../includes/acceso.php");?>
+    <?php include("../includes/acceso.php");?>
 
 </body>
 
@@ -502,9 +482,5 @@ if (isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_1"] == "logged")
 else
 {
    header("location: http://".$svr_dir."/sigce/acceso/login.php");
-   // [CAMBIO recomendado] exit; después de header() para garantizar que
-   // no se ejecute código adicional tras la redirección. En este archivo no
-   // cambia el comportamiento (no había más código después), evita bugs si el archivo crece.
-   exit;
 }
 ?>
