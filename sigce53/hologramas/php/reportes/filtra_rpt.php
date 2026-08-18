@@ -60,48 +60,34 @@
 		switch($tipo)
 		{
 			case 1:
-			{
-				$consulta .= " h_salidas.no_cliente like '%$cliente%'";
-			    $sql_cont.=" h_salidas.no_cliente like '%$cliente%'";
-				break;
-			}
+                $consulta .= " h_salidas.no_cliente like '%$cliente%'";
+                $sql_cont.=" h_salidas.no_cliente like '%$cliente%'";
+                break;
 			case 2:
-			{
-				$consulta .= " h_salidas.no_cliente like '%$cliente%' and h_salidas.serie=''";
-			    $sql_cont.=" h_salidas.no_cliente like '%$cliente%' and h_salidas.serie=''";
-				break;
-			}
+                $consulta .= " h_salidas.no_cliente like '%$cliente%' and h_salidas.serie=''";
+                $sql_cont.=" h_salidas.no_cliente like '%$cliente%' and h_salidas.serie=''";
+                break;
 			case 3:
-			{
-			    $consulta .= " h_salidas.no_cliente like '%$cliente%' and h_salidas.serie!=''";
-			    $sql_cont.="  h_salidas.no_cliente like '%$cliente%' and h_salidas.serie!=''";
-				break;
-			}
+                $consulta .= " h_salidas.no_cliente like '%$cliente%' and h_salidas.serie!=''";
+                $sql_cont.="  h_salidas.no_cliente like '%$cliente%' and h_salidas.serie!=''";
+                break;
 			case 4:
-			{
-				switch($tipo_m)
+                switch($tipo_m)
 				{
 					case 'T':
-					{
-						$consulta .= " h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}'";
-			            $sql_cont.="  h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}'";
-						break;
-					}
+                        $consulta .= " h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}'";
+                        $sql_cont.="  h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}'";
+                        break;
 					case 'G':
-					{
-						$consulta .= " h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}' and h_salidas.serie=''";
-			            $sql_cont.="  h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}' and h_salidas.serie=''";
-						break;
-					}
+                        $consulta .= " h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}' and h_salidas.serie=''";
+                        $sql_cont.="  h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}' and h_salidas.serie=''";
+                        break;
 					case 'P':
-					{
-						$consulta .= " h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}' and h_salidas.serie!=''";
-			            $sql_cont.="  h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}' and h_salidas.serie!=''";
-						break;
-					}
+                        $consulta .= " h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}' and h_salidas.serie!=''";
+                        $sql_cont.="  h_salidas.no_cliente like '%$cliente%' and  h_salidas.marca='{$marca}' and h_salidas.serie!=''";
+                        break;
 				}
-				break;
-			}
+                break;
 		}
 
 		if($estado != "T" && $estado != "" ) {
@@ -126,10 +112,10 @@
 			$order = "  ORDER BY h_salidas.marca,h_salidas.fecha_entr,h_salidas.fi1 asc";
 
 
-		if(trim($fecha1)!=''&&trim($fecha2)!='') {
+		if(trim($fecha1) !== ''&&trim($fecha2) !== '') {
 			$consulta.=" and fecha_entr between '$fecha1' and '$fecha2' $order";
 			$sql_cont.=" and fecha_entr between '$fecha1' and '$fecha2' $order";
-		} else if(trim($fecha1)!='') {
+		} else if(trim($fecha1) !== '') {
 			$consulta.=" and fecha_entr='$fecha1' $order";
 			$sql_cont.=" and fecha_entr='$fecha1' $order";
 		} else {
@@ -142,7 +128,7 @@
 		if(!$sidx) $sidx =1;
 		// Se crea la conexi�n a la base de datos
 		//$conexion = new mysqli("localhost","root","MyCRMSql15","siig");
-		include('../../../common/conexion.php');
+		include(__DIR__ . '/../../../common/conexion.php');
 
 		// Se hace una consulta para saber cuantos registros se van a mostrar
 
@@ -181,8 +167,8 @@
 		$i=0;
 		while( $fila = $result->fetch_assoc() ) {
 			$recibo='AR'.str_pad($fila["id_recibo"],4,'0',STR_PAD_LEFT).'/'.$fila["anio_rcbo"];
-			$marca=utf8_encode($fila["marca"]);
-			if($marca=="")
+			$marca=mb_convert_encoding($fila["marca"], 'UTF-8', 'ISO-8859-1');
+			if($marca === "")
 			{
 				$marca="N/A";
 			}
@@ -220,39 +206,26 @@
 			switch($fila["tipo"])
 			{
 				case 0:
-				{
-					$tipo_mez="N/A";
-					break;
-				}
+                    $tipo_mez="N/A";
+                    break;
 				case 1:
-				{
-					$tipo_mez="MEZCAL";
-					break;
-				}
+                    $tipo_mez="MEZCAL";
+                    break;
 				case 2:
-				{
-					$tipo_mez="ARTESANAL";
-					break;
-				}
+                    $tipo_mez="ARTESANAL";
+                    break;
 				case 3:
-				{
-					$tipo_mez="ANCESTRAL";
-					break;
-				}
+                    $tipo_mez="ANCESTRAL";
+                    break;
 
 			}
 			$respuesta->rows[$i]["id"]=$fila["id_salidas"];
-			$respuesta->rows[$i]["cell"]=array($recibo,$marca,$serie,$edo,$tipo_mez,utf8_encode($solicitud),$f_entrega,$fol_ini,$fol_fin,$cantidad);
+			$respuesta->rows[$i]["cell"]=[$recibo,$marca,$serie,$edo,$tipo_mez,mb_convert_encoding($solicitud, 'UTF-8', 'ISO-8859-1'),$f_entrega,$fol_ini,$fol_fin,$cantidad];
 			$i++;
 		}
     //$respuesta->rows[0]["sql"] = $consulta;
 	$conexion->close();
 		// La respuesta se regresa como json
 		echo  json_encode($respuesta);
-	}
-	else
-	{
-
-
 	}
 ?>
