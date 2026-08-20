@@ -1,277 +1,277 @@
 <?php
-  session_start();
-  include("../common/conexion.php");
-  /*include('php/registro/conexion.php');
-  include('php/registro/conexion_remota.php');*/
-  $conexion->set_charset("utf8");
-  //$conexion_remota->set_charset("utf8");
+/**
+ * reporteexcel.php — PHP 8.3
+ * Genera el reporte Excel de predios (descarga .xlsx).
+ *
+ * Cambios vs versión original:
+ *  - PHPExcel (abandonada 2015, incompatible con PHP 8: sintaxis $str{n}
+ *    eliminada) → PhpOffice\PhpSpreadsheet vía Composer.
+ *  - Consulta N+1 eliminada: el nombre del cliente ahora viene por JOIN
+ *    en la consulta principal (antes: una query por cada fila del reporte).
+ *  - Autorización reforzada: el original solo comparaba ?aleat= contra una
+ *    lista de IDs — cualquier visitante con la URL descargaba el reporte.
+ *    Ahora se exige además sesión activa (seccion_4_4 = logged). La lista
+ *    de IDs autorizados se conserva como regla de negocio.
+ *  - freezePaneByColumnAndRow() no existe en PhpSpreadsheet → freezePane('A3')
+ *  - Autoajuste de columnas extendido a Y y Z (el original se quedaba en X)
+ *
+ * Requiere: composer require phpoffice/phpspreadsheet  (ver instrucciones)
+ */
+declare(strict_types=1);
 
+session_start();
 
-	$consulta = "SELECT
-	paraje.id_paraje,
-	paraje.id_cliente,
-	paraje.nombrep,
-	existenciaplanta.regmaguey AS regmaguey,
-	LPAD(constancias.id_constancia,4,'0') as constancia,
-	CONCAT('P',LPAD(SUBSTR(paraje.id_paraje, 2, LENGTH(paraje.id_paraje)),4,'0')) as parajes,
-	Date_format(constancias.fecha,'%y') as anio,
-	constancias.id_constancia as numeroconstancia,
-	municipios.nombre as nombrem,
-	estados.nombre as nombree,
-	localidades.localidad,
-	paraje.paraje,
-	comun.nombre,genespecie,existenciaplantas,
-	existenciaplanta.edad,usufruto,tenencia,superficie,lng,lat,dis_planmetros,dis_surcometros,fecha_paraje,rcampo,cantidadini, paraje.numa, au.login 
-from estados
-inner join municipios on municipios.estado=estados.clave
-inner join localidades on localidades.MunicipioID=municipios.id
-inner join paraje on localidades.id=paraje.id_localidad
-inner join constancias on constancias.id_paraje=paraje.id_paraje
-inner join existenciaplanta on paraje.id_paraje=existenciaplanta.id_paraje
-Inner Join comun ON comun.id_comun= existenciaplanta.id_comun
-Inner Join especie ON comun.id_especie = especie.id_especie 
-INNER JOIN a_usuarios au ON paraje.id_us = au.id_us 
-order by paraje.id ";
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../common/conexion.php';
 
-	$filas = 0;
-	$idus = $_GET['aleat'];
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-	if($resultado = $conexion->query($consulta))
-  		$filas = $resultado->num_rows;
-  //$idus = $_SESSION[$d_s]['id_us'];
-  // clvuser == 23 || clvuser == 34 || clvuser == 117 || clvuser == 21) {
-	if($filas > 0 && ($idus == 1 || $idus == 23 || $idus == 34 || $idus == 48 || $idus == 117 || $idus == 21 || $idus == 148 )){
+if (PHP_SAPI === 'cli') {
+    exit('Este archivo solo se puede ver desde un navegador web');
+}
 
+// ---------------------------------------------------------------------
+// Autorización: sesión activa + ID en la lista de usuarios permitidos
+// ---------------------------------------------------------------------
+$sesionValida = false;
+foreach ($_SESSION as $dato) {
+    if (is_array($dato) && ($dato['seccion_4_4'] ?? '') === 'logged') {
+        $sesionValida = true;
+        break;
+    }
+}
 
+$idus = (int)($_GET['aleat'] ?? 0);
+$usuariosAutorizados = [1, 21, 23, 34, 48, 117, 148];
 
+if (!$sesionValida || !in_array($idus, $usuariosAutorizados, true)) {
+    http_response_code(403);
+    exit('No autorizado.');
+}
 
-		date_default_timezone_set('America/Mexico_City');
+date_default_timezone_set('America/Mexico_City');
 
-		if (PHP_SAPI == 'cli')
-			die('Este archivo solo se puede ver desde un navegador web');
+// ---------------------------------------------------------------------
+// Consulta principal (nombre de cliente por JOIN; antes: query por fila)
+// ---------------------------------------------------------------------
+$consulta = "SELECT
+    paraje.id_paraje,
+    paraje.id_cliente,
+    cl.nombre AS clientenombre,
+    paraje.nombrep,
+    existenciaplanta.regmaguey AS regmaguey,
+    LPAD(constancias.id_constancia,4,'0') as constancia,
+    CONCAT('P',LPAD(SUBSTR(paraje.id_paraje, 2, LENGTH(paraje.id_paraje)),4,'0')) as parajes,
+    DATE_FORMAT(constancias.fecha,'%y') as anio,
+    constancias.id_constancia as numeroconstancia,
+    municipios.nombre as nombrem,
+    estados.nombre as nombree,
+    localidades.localidad,
+    paraje.paraje,
+    comun.nombre, genespecie, existenciaplantas,
+    existenciaplanta.edad, usufruto, tenencia, superficie, lng, lat,
+    dis_planmetros, dis_surcometros, fecha_paraje, rcampo, cantidadini,
+    paraje.numa, au.login
+FROM estados
+INNER JOIN municipios  ON municipios.estado = estados.clave
+INNER JOIN localidades ON localidades.MunicipioID = municipios.id
+INNER JOIN paraje      ON localidades.id = paraje.id_localidad
+INNER JOIN clientes cl ON cl.no_cliente = paraje.id_cliente
+INNER JOIN constancias ON constancias.id_paraje = paraje.id_paraje
+INNER JOIN existenciaplanta ON paraje.id_paraje = existenciaplanta.id_paraje
+INNER JOIN comun   ON comun.id_comun   = existenciaplanta.id_comun
+INNER JOIN especie ON comun.id_especie = especie.id_especie
+INNER JOIN a_usuarios au ON paraje.id_us = au.id_us
+ORDER BY paraje.id";
 
-		/** Se agrega la libreria PHPExcel */
-		require_once 'libs/phpExcel/PHPExcel.php';
+try {
+    $resultado = $conexion->query($consulta);
 
-		// Se crea el objeto PHPExcel
-		$objPHPExcel = new PHPExcel();
+    if ($resultado->num_rows === 0) {
+        exit('No hay resultados para mostrar');
+    }
 
-		// Se asignan las propiedades del libro
-		$objPHPExcel->getProperties()->setCreator("NJGC") //Autor
-							 ->setLastModifiedBy("NJGC") //Ultimo usuario que lo modificó
-							 ->setTitle("REPORTE DE PREDIOS AMMA")
-							 ->setSubject("REPORTE DE PREDIOS AMMA")
-							 ->setDescription("REPORTE DE PREDIOS AMMA")
-							 ->setKeywords("REPORTE DE PREDIOS AMMA")
-							 ->setCategory("REPORTE DE PREDIOS AMMA");
+    // -----------------------------------------------------------------
+    // Libro y propiedades
+    // -----------------------------------------------------------------
+    $spreadsheet = new Spreadsheet();
+    $spreadsheet->getProperties()
+        ->setCreator('NJGC')
+        ->setLastModifiedBy('NJGC')
+        ->setTitle('REPORTE DE PREDIOS AMMA')
+        ->setSubject('REPORTE DE PREDIOS AMMA')
+        ->setDescription('REPORTE DE PREDIOS AMMA')
+        ->setKeywords('REPORTE DE PREDIOS AMMA')
+        ->setCategory('REPORTE DE PREDIOS AMMA');
 
-		$tituloReporte = "REPORTE DE PREDIOS DE MAGUEY";
-		$titulosColumnas = array('NO_PARAJE','NO_CLIENTE','NOMBRE DEL CLIENTE','NOMBRE DE PRODUCTOR','SITUACIÓN DE MANEJO','NO.CONSTANCIA','LOCALIDAD','MUNICIPIO','ESTADO','NOMBRE DEL PARAJE','NOMBRE COMÚN (ESPECIE)','NOMBRE CIENTIFICO (ESPECIE)','CANTIDAD INICIAL','CANTIDAD DE EXISTENCIA PLANTAS','EDAD','USUFRUTO','TENENCIA','SUPERFICIE','LONGITUD','LATITUD','DISTANCIA ENTRE PLANTAS (METROS)','DISTANCIA ENTRE SURCOS (METROS)','FECHA DE REGISTRO','REPRESENTANTE EN CAMPO','ORIGEN','REGISTRÓ');
+    $hoja = $spreadsheet->getActiveSheet();
+    $hoja->setTitle('PREDIOS');
 
-		$objPHPExcel->setActiveSheetIndex(0)
-        		    ->mergeCells('A1:Z1');
+    $tituloReporte = 'REPORTE DE PREDIOS DE MAGUEY';
+    $titulosColumnas = [
+        'NO_PARAJE','NO_CLIENTE','NOMBRE DEL CLIENTE','NOMBRE DE PRODUCTOR',
+        'SITUACIÓN DE MANEJO','NO.CONSTANCIA','LOCALIDAD','MUNICIPIO','ESTADO',
+        'NOMBRE DEL PARAJE','NOMBRE COMÚN (ESPECIE)','NOMBRE CIENTIFICO (ESPECIE)',
+        'CANTIDAD INICIAL','CANTIDAD DE EXISTENCIA PLANTAS','EDAD','USUFRUTO',
+        'TENENCIA','SUPERFICIE','LONGITUD','LATITUD',
+        'DISTANCIA ENTRE PLANTAS (METROS)','DISTANCIA ENTRE SURCOS (METROS)',
+        'FECHA DE REGISTRO','REPRESENTANTE EN CAMPO','ORIGEN','REGISTRÓ',
+    ];
 
-		// Se agregan los titulos del reporte
-		$objPHPExcel->setActiveSheetIndex(0)
-					->setCellValue('A1',$tituloReporte)
-        		    ->setCellValue('A2',  $titulosColumnas[0])
-		            ->setCellValue('B2',  $titulosColumnas[1])
-        		    ->setCellValue('C2',  $titulosColumnas[2])
-            		->setCellValue('D2',  $titulosColumnas[3])
-					->setCellValue('E2',  $titulosColumnas[4])
-		            ->setCellValue('F2',  $titulosColumnas[5])
-        		    ->setCellValue('G2',  $titulosColumnas[6])
-            		->setCellValue('H2',  $titulosColumnas[7])
-					->setCellValue('I2',  $titulosColumnas[8])
-		            ->setCellValue('J2',  $titulosColumnas[9])
-        		    ->setCellValue('K2',  $titulosColumnas[10])
-            		->setCellValue('L2',  $titulosColumnas[11])
-				    ->setCellValue('M2',  $titulosColumnas[12])
-		            ->setCellValue('N2',  $titulosColumnas[13])
-        		    ->setCellValue('O2',  $titulosColumnas[14])
-            		->setCellValue('P2',  $titulosColumnas[15])
-					->setCellValue('Q2',  $titulosColumnas[16])
-					->setCellValue('R2',  $titulosColumnas[17])
-					->setCellValue('S2',  $titulosColumnas[18])
-					->setCellValue('T2',  $titulosColumnas[19])
-					->setCellValue('U2',  $titulosColumnas[20])
-					->setCellValue('V2',  $titulosColumnas[21])
-					->setCellValue('W2',  $titulosColumnas[22])
-					->setCellValue('X2',  $titulosColumnas[23])
-					->setCellValue('Y2',  $titulosColumnas[24])
-					->setCellValue('Z2',  $titulosColumnas[25]);
+    $hoja->mergeCells('A1:Z1');
+    $hoja->setCellValue('A1', $tituloReporte);
 
-		//Se agregan los datos de los alumnos
-		$i = 3;
-		while ($registro= $resultado->fetch_array())
-		{
+    // Encabezados de columnas (A2..Z2)
+    foreach ($titulosColumnas as $n => $titulo) {
+        $col = chr(ord('A') + $n);            // A..Z (26 columnas)
+        $hoja->setCellValue($col . '2', $titulo);
+    }
 
+    // -----------------------------------------------------------------
+    // Filas de datos
+    // -----------------------------------------------------------------
+    $i = 3;
+    while ($registro = $resultado->fetch_array()) {
+        $origen = ((int)$registro['numa'] > 0) ? 'EXTERNO' : 'AMMA';
 
-			$cliente=$registro['id_cliente'];
-	 	    $strCliente = "SELECT clientes.no_cliente,clientes.nombre as clientenombre
-					   from clientes
-					   where clientes.no_cliente='$cliente'";
-
-
-	        $clientes= $conexion->query($strCliente);
-	        $filaClientes = mysqli_fetch_array($clientes);
-
-	        $origen = "";
-	        $origen = ($registro['numa'] > 0) ? "EXTERNO": "AMMA";
-
-			$objPHPExcel->setActiveSheetIndex(0)
-			->setCellValueExplicit('A'.$i, $registro['parajes'], PHPExcel_Cell_DataType::TYPE_STRING)
-			->setCellValueExplicit('B'.$i, $filaClientes['no_cliente'], PHPExcel_Cell_DataType::TYPE_STRING)
-			->setCellValue('C'.$i, $filaClientes['clientenombre'])
-			->setCellValue('D'.$i, $registro['nombrep'])
-			->setCellValue('E'.$i, $registro['regmaguey'])
-			->setCellValueExplicit('F'.$i, strtoupper($registro['constancia']).$registro['parajes'].$registro['anio'], PHPExcel_Cell_DataType::TYPE_STRING)
-			->setCellValue('G'.$i, $registro['localidad'])
-			->setCellValue('H'.$i, $registro['nombrem'])
-			->setCellValue('I'.$i, $registro['nombree'])
-			->setCellValue('J'.$i, $registro['paraje'])
-			->setCellValue('K'.$i, $registro['nombre'])
-			->setCellValue('L'.$i, $registro['genespecie'])
-			->setCellValue('M'.$i, $registro['cantidadini'])
-			->setCellValue('N'.$i, $registro['existenciaplantas'])
-			->setCellValue('O'.$i, $registro['edad'])
-			->setCellValue('P'.$i, $registro['usufruto'])
-			->setCellValue('Q'.$i, $registro['tenencia'])
-			->setCellValue('R'.$i, $registro['superficie'])
-			->setCellValue('S'.$i, $registro['lng'])
-			->setCellValue('T'.$i, $registro['lat'])
-			->setCellValue('U'.$i, $registro['dis_planmetros'])
-			->setCellValue('V'.$i, $registro['dis_surcometros'])
-			->setCellValue('W'.$i, $registro['fecha_paraje'])
-			->setCellValue('X'.$i, $registro['rcampo'])
-			->setCellValue('Y'.$i, $origen)
-			->setCellValue('Z'.$i, $registro['login'])
-			;
-	 		$i++;
-		}
-
-		$estiloTituloReporte = array(
-        	'font' => array(
-	        	'name'      => 'Verdana',
-    	        'bold'      => true,
-        	    'italic'    => false,
-                'strike'    => false,
-               	'size' =>16,
-	            	'color'     => array(
-    	            	'rgb' => 'FFFFFF'
-        	       	)
-            ),
-	        'fill' => array(
-				'type'	=> PHPExcel_Style_Fill::FILL_SOLID,
-				'color'	=> array('argb' => '1C7F33')
-			),
-            'borders' => array(
-               	'allborders' => array(
-                	'style' => PHPExcel_Style_Border::BORDER_NONE
-               	)
-            ),
-            'alignment' =>  array(
-        			'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-        			'vertical'   => PHPExcel_Style_Alignment::VERTICAL_CENTER,
-        			'rotation'   => 0,
-        			'wrap'          => TRUE
-    		)
+        // Explicit string: conserva ceros a la izquierda (P0001, C0005)
+        $hoja->setCellValueExplicit('A' . $i, $registro['parajes'], DataType::TYPE_STRING);
+        $hoja->setCellValueExplicit('B' . $i, $registro['id_cliente'], DataType::TYPE_STRING);
+        $hoja->setCellValue('C' . $i, $registro['clientenombre']);
+        $hoja->setCellValue('D' . $i, $registro['nombrep']);
+        $hoja->setCellValue('E' . $i, $registro['regmaguey']);
+        $hoja->setCellValueExplicit(
+            'F' . $i,
+            strtoupper((string)$registro['constancia']) . $registro['parajes'] . $registro['anio'],
+            DataType::TYPE_STRING
         );
+        $hoja->setCellValue('G' . $i, $registro['localidad']);
+        $hoja->setCellValue('H' . $i, $registro['nombrem']);
+        $hoja->setCellValue('I' . $i, $registro['nombree']);
+        $hoja->setCellValue('J' . $i, $registro['paraje']);
+        $hoja->setCellValue('K' . $i, $registro['nombre']);
+        $hoja->setCellValue('L' . $i, $registro['genespecie']);
+        $hoja->setCellValue('M' . $i, $registro['cantidadini']);
+        $hoja->setCellValue('N' . $i, $registro['existenciaplantas']);
+        $hoja->setCellValue('O' . $i, $registro['edad']);
+        $hoja->setCellValue('P' . $i, $registro['usufruto']);
+        $hoja->setCellValue('Q' . $i, $registro['tenencia']);
+        $hoja->setCellValue('R' . $i, $registro['superficie']);
+        $hoja->setCellValue('S' . $i, $registro['lng']);
+        $hoja->setCellValue('T' . $i, $registro['lat']);
+        $hoja->setCellValue('U' . $i, $registro['dis_planmetros']);
+        $hoja->setCellValue('V' . $i, $registro['dis_surcometros']);
+        $hoja->setCellValue('W' . $i, $registro['fecha_paraje']);
+        $hoja->setCellValue('X' . $i, $registro['rcampo']);
+        $hoja->setCellValue('Y' . $i, $origen);
+        $hoja->setCellValue('Z' . $i, $registro['login']);
+        $i++;
+    }
+    $ultimaFila = $i - 1;
 
-		$estiloTituloColumnas = array(
-            'font' => array(
-                'name'      => 'Arial',
-                'bold'      => true,
-				'size' =>11,
-                'color'     => array(
-                    'rgb' => 'FFFFFF'
-                )
-            ),
-            'fill' 	=> array(
-				'type'		=> PHPExcel_Style_Fill::FILL_GRADIENT_LINEAR,
-				'rotation'   => 90,
-        		'startcolor' => array(
-            		'rgb' => '4AE66F'
-        		),
-        		'endcolor'   => array(
-            		'argb' => 'FF431a5d'
-        		)
-			),
-            'borders' => array(
-            	'top'     => array(
-                    'style' => PHPExcel_Style_Border::BORDER_MEDIUM ,
-                    'color' => array(
-                        'rgb' => '53DA73'
-                    )
-                ),
-                'bottom'     => array(
-                    'style' => PHPExcel_Style_Border::BORDER_MEDIUM ,
-                    'color' => array(
-                        'rgb' => '29D551'
-                    )
-                )
-            ),
-			'alignment' =>  array(
-        			'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-        			'vertical'   => PHPExcel_Style_Alignment::VERTICAL_CENTER,
-        			'wrap'          => TRUE
-    		));
+    // -----------------------------------------------------------------
+    // Estilos (equivalentes a los originales, claves de PhpSpreadsheet:
+    // type→fillType, allborders→allBorders, startcolor→startColor,
+    // wrap→wrapText)
+    // -----------------------------------------------------------------
+    $estiloTituloReporte = [
+        'font' => [
+            'name' => 'Verdana', 'bold' => true, 'italic' => false,
+            'strikethrough' => false, 'size' => 16,
+            'color' => ['rgb' => 'FFFFFF'],
+        ],
+        'fill' => [
+            'fillType' => Fill::FILL_SOLID,
+            'color'    => ['argb' => '1C7F33'],
+        ],
+        'borders' => [
+            'allBorders' => ['borderStyle' => Border::BORDER_NONE],
+        ],
+        'alignment' => [
+            'horizontal' => Alignment::HORIZONTAL_CENTER,
+            'vertical'   => Alignment::VERTICAL_CENTER,
+            'textRotation' => 0,
+            'wrapText'   => true,
+        ],
+    ];
 
-		$estiloInformacion = new PHPExcel_Style();
-		$estiloInformacion->applyFromArray(
-			array(
-           		'font' => array(
-               	'name'      => 'Arial',
-				'size' =>9,
-               	'color'     => array(
-                   	'rgb' => '000000'
-               	)
-           	),
-           	'fill' 	=> array(
-				'type'		=> PHPExcel_Style_Fill::FILL_SOLID,
-				//'color'		=> array('argb' => 'FFd9b7f4')
-			),
-           	'borders' => array(
-               	'left'     => array(
-                   	'style' => PHPExcel_Style_Border::BORDER_THIN ,
-	                'color' => array(	'rgb' => '#B2E5CB'
-                   	)
-               	)
-           	)
-        ));
+    $estiloTituloColumnas = [
+        'font' => [
+            'name' => 'Arial', 'bold' => true, 'size' => 11,
+            'color' => ['rgb' => 'FFFFFF'],
+        ],
+        'fill' => [
+            'fillType'   => Fill::FILL_GRADIENT_LINEAR,
+            'rotation'   => 90,
+            'startColor' => ['rgb' => '4AE66F'],
+            'endColor'   => ['argb' => 'FF431A5D'],
+        ],
+        'borders' => [
+            'top' => [
+                'borderStyle' => Border::BORDER_MEDIUM,
+                'color' => ['rgb' => '53DA73'],
+            ],
+            'bottom' => [
+                'borderStyle' => Border::BORDER_MEDIUM,
+                'color' => ['rgb' => '29D551'],
+            ],
+        ],
+        'alignment' => [
+            'horizontal' => Alignment::HORIZONTAL_CENTER,
+            'vertical'   => Alignment::VERTICAL_CENTER,
+            'wrapText'   => true,
+        ],
+    ];
 
-		$objPHPExcel->getActiveSheet()->getStyle('A1:Z1')->applyFromArray($estiloTituloReporte);
-		$objPHPExcel->getActiveSheet()->getStyle('A2:Z2')->applyFromArray($estiloTituloColumnas);
-		$objPHPExcel->getActiveSheet()->setSharedStyle($estiloInformacion, "A3:Z".($i-1));
+    $estiloInformacion = [
+        'font' => [
+            'name' => 'Arial', 'size' => 9,
+            'color' => ['rgb' => '000000'],
+        ],
+        'borders' => [
+            'left' => [
+                'borderStyle' => Border::BORDER_THIN,
+                'color' => ['rgb' => 'B2E5CB'],   // el original traía '#B2E5CB'; el # era inválido
+            ],
+        ],
+    ];
 
-		for($i = 'A'; $i <= 'X'; $i++){
-			$objPHPExcel->setActiveSheetIndex(0)
-				->getColumnDimension($i)->setAutoSize(TRUE);
-		}
+    $hoja->getStyle('A1:Z1')->applyFromArray($estiloTituloReporte);
+    $hoja->getStyle('A2:Z2')->applyFromArray($estiloTituloColumnas);
+    if ($ultimaFila >= 3) {
+        $hoja->getStyle('A3:Z' . $ultimaFila)->applyFromArray($estiloInformacion);
+    }
 
-		// Se asigna el nombre a la hoja
-		$objPHPExcel->getActiveSheet()->setTitle('PREDIOS');
+    // Autoajuste A..Z (el original se detenía en X y dejaba Y, Z sin ajustar)
+    foreach (range('A', 'Z') as $col) {
+        $hoja->getColumnDimension($col)->setAutoSize(true);
+    }
 
-		// Se activa la hoja para que sea la que se muestre cuando el archivo se abre
-		$objPHPExcel->setActiveSheetIndex(0);
-		// Inmovilizar paneles
-		//$objPHPExcel->getActiveSheet(0)->freezePane('A4');
-		$objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0,3);
+    // Inmovilizar encabezados (equivale a freezePaneByColumnAndRow(0,3))
+    $hoja->freezePane('A3');
 
-		// Se manda el archivo al navegador web, con el nombre que se indica (Excel2007)
-		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-		header('Content-Disposition: attachment;filename="Reportedepredios.xlsx"');
-		header('Cache-Control: max-age=0');
+    $spreadsheet->setActiveSheetIndex(0);
 
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
-		$objWriter->save('php://output');
-		exit;
+    // -----------------------------------------------------------------
+    // Descarga
+    // -----------------------------------------------------------------
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment;filename="Reportedepredios.xlsx"');
+    header('Cache-Control: max-age=0');
 
-	}
-	else{
-		print_r('No hay resultados para mostrar');
-	}
+    $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+    $writer->save('php://output');
+    exit;
 
-	$conexion->close();
-	//$conexion_remota->close();
-?>
+} catch (mysqli_sql_exception $e) {
+    error_log('[reporteexcel.php] ' . $e->getMessage());
+    http_response_code(500);
+    exit('Error al generar el reporte.');
+} finally {
+    $conexion->close();
+}

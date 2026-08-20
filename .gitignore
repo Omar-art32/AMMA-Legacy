@@ -1,6 +1,5 @@
 sigce53.zip
 php.ini
 vendor/
-composer.json
-composer.lock
 .rector-cache
+rector.php

@@ -1,9 +1,32 @@
 <?php
+    declare(strict_types=1);
+
+    /*
+     * PHP 8.3:
+     *  - session_set_cookie_params() DEBE ir antes de session_start()
+     *    (después de iniciada la sesión, en 8.x lanza warning y no aplica).
+     *  - Se elimina $_SERVER["HTTP_HOST"] como dominio de cookie
+     *    (viene del cliente: inyección de encabezado Host). Con '' PHP usa
+     *    el host actual, que es el comportamiento deseado.
+     *  - $_GET['d_s'] sin isset en 8.x genera "Undefined array key".
+     */
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => isset($_SERVER['HTTPS']),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
-    session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
-    require_once('../common/cfg_server.php');
-    $d_s=$_GET['d_s'];
-    if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_4"] == "logged")
+
+    require_once __DIR__ . '/../common/cfg_server.php';
+
+    $d_s = $_GET['d_s'] ?? '';
+
+    if ($d_s !== ''
+        && isset($_SESSION[$d_s]['seccion_4_4'])
+        && $_SESSION[$d_s]['seccion_4_4'] === 'logged')
     {
 ?>
 <!DOCTYPE html>
@@ -40,11 +63,12 @@
 
 
   <script type="text/javascript">
-      var id_s="<?php echo $d_s; ?>";
-      var id_depto="<?php echo $_SESSION[$d_s]['dpto']; ?>";
-      var usr_cargo="<?php echo $_SESSION[$d_s]['cargo']; ?>";
-      var user="<?php echo $_SESSION[$d_s]['s_username'];?>";
-      var clvuser="<?php echo $_SESSION[$d_s]['id_us'];?>";
+      // json_encode genera literales JS seguros (antes: echo directo → XSS)
+      var id_s=<?php echo json_encode($d_s); ?>;
+      var id_depto=<?php echo json_encode($_SESSION[$d_s]['dpto'] ?? ''); ?>;
+      var usr_cargo=<?php echo json_encode($_SESSION[$d_s]['cargo'] ?? ''); ?>;
+      var user=<?php echo json_encode($_SESSION[$d_s]['s_username'] ?? ''); ?>;
+      var clvuser=<?php echo json_encode($_SESSION[$d_s]['id_us'] ?? ''); ?>;
 
       var moduloAcceso=4;
       var seccionAcceso=4;
@@ -240,7 +264,7 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="../index.php?d_s=<?php echo $d_s?>"><i class="fa fa-lg fa-home" aria-hidden="true"></i> SIGCE</a>
+          <a class="navbar-brand" href="../index.php?d_s=<?php echo urlencode($d_s)?>"><i class="fa fa-lg fa-home" aria-hidden="true"></i> SIGCE</a>
           <div class="menu-toggler sidebar-toggler">
             <span class="sr-only">Toggle navigation</span>
             <span class="icon-bar"></span>
@@ -282,7 +306,7 @@
               <ul class="dropdown-menu dropdown-user">
                 <li><a href="#"><i class="fa fa-gear fa-fw"></i> Configuraciones</a></li>
                 <li class="divider"></li>
-                <li><a href="../acceso/cerrar.php?d_s=<?php echo $d_s?>"><i class="fa fa-sign-out fa-fw"></i> Salir</a></li>
+                <li><a href="../acceso/cerrar.php?d_s=<?php echo urlencode($d_s)?>"><i class="fa fa-sign-out fa-fw"></i> Salir</a></li>
               </ul>
               <!-- /.dropdown-user -->
             </li>
@@ -299,7 +323,7 @@
       <nav role="navigation" style="margin-bottom: 0; margin-top: -1px;">
         <div class="navbar-default sidebar" role="navigation">
           <div class="sidebar-nav navbar-collapse" id="sidebar-area">
-            <ul class="nav" id="sidebar"> <?php echo $_SESSION[$d_s]['links'];?> </ul>
+            <ul class="nav" id="sidebar"> <?php echo $_SESSION[$d_s]['links'] ?? ''; // HTML generado por acceso, se emite tal cual ?> </ul>
           </div>
         <!-- /.sidebar-collapse -->
         </div>
@@ -322,7 +346,7 @@
                 <div class="panel-body">
                   <div class="form">
                     <form class="form-horizontal" action="" onsubmit="" id="formbuscar" method="POST" name="formbuscar" enctype="multipart/form-data" onSubmit="return limpiar()">
-                      <input type="hidden" name='usr' id='usr' value='<?php echo $_SESSION[$d_s]['s_username'];?>'>
+                      <input type="hidden" name='usr' id='usr' value='<?php echo htmlspecialchars($_SESSION[$d_s]['s_username'] ?? '', ENT_QUOTES)?>'>
                       <fieldset>
                         <legend align="">Buscar</legend>
                       </fieldset>
@@ -364,7 +388,7 @@
                       </div>
                       <div class="conteiner">
                         <label for="asociado" class="col-lg-3 control-label">Descarga Reporte: </label>
-                        <a href="reporteexcel.php?aleat= <?php echo $_SESSION[$d_s]['id_us']; ?>" target="_blank">
+                        <a href="reporteexcel.php?aleat=<?php echo urlencode((string)($_SESSION[$d_s]["id_us"] ?? ""))?>" target="_blank">
                           <img src="images/excell.png" alt="Descarga" width="35px">
                         </a>
                       </div>
@@ -428,6 +452,9 @@
   }
   else
   {
-    header("location: http://".$svr_dir."/sigce/acceso/login.php");
+    // exit obligatorio: sin él, el script continúa ejecutándose tras el header
+    $esquema = isset($_SERVER['HTTPS']) ? 'https' : 'http';
+    header('Location: ' . $esquema . '://' . $svr_dir . '/sigce/acceso/login.php');
+    exit;
   }
 ?>
