@@ -1,5 +1,4 @@
 <?php
-session_start();
 
 // [CAMBIO recomendado] session_set_cookie_params() con sintaxis de arreglo
 // en lugar de argumentos posicionales. Mismo comportamiento que el original
@@ -12,6 +11,9 @@ session_set_cookie_params([
     'secure'   => false,
     'httponly' => false,
 ]);
+
+session_start();
+
 
 $mod = 1;
 
