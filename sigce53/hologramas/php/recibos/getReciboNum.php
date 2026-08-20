@@ -1,4 +1,12 @@
 <?php
+//  Escudo para evitar que advertencias o avisos de PHP 8 ensucien el JSON
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
+ini_set('display_errors', '0');
+
+// Definir encabezado de respuesta JSON
+header('Content-Type: application/json; charset=utf-8');
+
+include('../../../common/conexion.php');
 include('../../../common/conexion.php');
 //$usr=$_POST['user'];
 $anio = date('y');

@@ -1,11 +1,23 @@
 <?php
+// Silenciar avisos/deprecated para asegurar un JSON puro
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+ini_set('display_errors', '0');
+
+header('Content-Type: application/json; charset=utf-8');
+
 include('../../common/conexion.php');
 include('../../common/conexion_remota.php');
-$client=utf8_decode ($_POST['nc_marca']);
+
+// Obtención de parámetros con conversión de codificación moderna y protección de nulos
+$nc_marca = $_POST['nc_marca']??'';
+$letra_raw = $_POST['letra']??'';
+$marca_raw = $_POST['marca_new ']??'';
+
+$client=mb_convert_encoding($nc_marca, 'ISO-8859-1', 'UTF-8');
 $client=substr($client,0,4);
 //$cod_c=substr($client,0,4);
-$letra=utf8_decode ($_POST['letra']);
-$marca=utf8_decode ($_POST['marca_new']);
+$letra=mb_convert_encoding($letra_raw, 'ISO-8859-1', 'UTF-8');
+$marca=mb_convert_encoding($marca_raw, 'ISO-8859-1', 'UTF-8');
 $marca=strtoupper($marca);
 $str_ins="";
 $respuesta=array();

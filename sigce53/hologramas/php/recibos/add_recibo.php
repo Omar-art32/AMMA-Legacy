@@ -1,48 +1,59 @@
 <?php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
+ini_set('display_errors', '0');
+
 require 'mc_table.php';
 require_once '../../../common/cfg_server.php';
+include '../../../common/conexion.php';
+
 class PDF extends FPDF
 {
     public $col = 0;
 }
-include '../../../common/conexion.php';
+
+// Función auxiliar para convertir cadenas de UTF-8 a ISO-8859-1 (reemplazo seguro de utf8_decode)
+function convISO($texto) {
+    if ($texto === null) return '';
+    return mb_convert_encoding($texto, 'ISO-8859-1', 'UTF-8');
+}
+
 $conexion->autocommit(false);
 //
 
-$grales = json_decode($_POST['grales'], true);
+// 2. Decodificación segura de JSON con fallbacks para PHP 8
+$grales = json_decode($_POST['grales'] ?? '{}', true) ?? array();
 
-$usr = $grales['usuario'];
-$anio_r = $grales['anio_recibo'];
+$usr    = $grales['usuario'] ?? '';
+$anio_r = $grales['anio_recibo'] ?? date('Y');
 
-$sqlNoRecibo = "select if(max(id_recibo) is null,0,max(id_recibo))  from h_salidas where anio_rcbo=$anio_r";
+// Consulta de número de recibo
+$sqlNoRecibo = "SELECT IF(MAX(id_recibo) IS NULL, 0, MAX(id_recibo)) FROM h_salidas WHERE anio_rcbo={$anio_r}";
+$result      = $conexion->query($sqlNoRecibo);
+$row         = $result ? $result->fetch_row() : array(0);
+$recibo      = ($row[0] ?? 0) + 1;
 
+$id_recibo    = 'AR' . str_pad($recibo, 4, '0', STR_PAD_LEFT) . '/' . $anio_r;
+$cliente      = $grales['cte'] ?? '';
+$empresa      = convISO($grales['empresa'] ?? '');
+$nombre_marca = get_marca($cliente, $grales['marca'] ?? '');
+$sol          = convISO(strtoupper($grales['solicitud'] ?? ''));
+$fecha_e      = convISO($grales['fecha_entrega'] ?? '');
+$destino      = convISO($grales['destino'] ?? '');
+$obs_ent      = convISO($grales['obs_entrega'] ?? '');
+$fecha        = date("Y-m-d H:i:s");
 
-$result = $conexion->query($sqlNoRecibo);
-$row = $result->fetch_row();
-$recibo = $row[0] + 1;
+// 3. Procesamiento de los datos en detalle
+$arr_data = json_decode($_POST['arr_data'] ?? '{}', true) ?? array();
+$arr_det  = $arr_data['data'] ?? array();
+$n_r      = count($arr_det);
 
-$id_recibo = 'AR' . str_pad($recibo, 4, '0', STR_PAD_LEFT) . '/' . $anio_r;
-$cliente = $grales['cte'];
-$empresa = utf8_decode($grales['empresa']);
-//$empresa="PRODUCTORES DE MIELES Y JARABES DE MAGUEY DE ZARAGOZA DE SOLIS MUNICIPIO DE VILLA DE GUADALUPE S.L.P. S.C. DE R.L.";
-//$nombre_marca=$grales['nombre_marc'];
-$nombre_marca = get_marca($cliente, $grales['marca']);
-$sol = utf8_decode(strtoupper($grales['solicitud']));
-$fecha_e = utf8_decode($grales['fecha_entrega']);
-$destino = utf8_decode($grales['destino']);
-$obs_ent = utf8_decode($grales['obs_entrega']);
-$fecha = date("Y-m-d H:i:s");
-//obtenemos los arreglos de los datos en detalle
-$arr_data = json_decode($_POST['arr_data'], true);
-$arr_det = $arr_data['data'];
-$n_r = count($arr_det);
-//obtenemos estado y tipo del primer registro
-$edo_gen = $arr_det[0]['edo'];
-$tipo_gen = get_tipo($arr_det[0]['tipo']);
+// Obtener estado y tipo del primer registro de manera segura
+$edo_gen  = $arr_det[0]['edo'] ?? '';
+$tipo_gen = get_tipo($arr_det[0]['tipo'] ?? '');
 
-$nota1 = utf8_decode("El  cliente de AMMA se obliga a utilizar los folios de hologramas entregados para los lotes descritos en la solicitud de ingreso, en caso de utilizar dichos hologramas en lotes distintos a los mencionados en el presente acuse, los lotes deberán ser certificados o en proceso de certificación, por lo que deberá notificar al inspector en turno dicho uso para que constate el cumplimiento con la NOM Mezcal vigente y quede manifestado en dictamen. En caso contrario se procederá a cancelar los hologramas y no se realizará la emisión de los certificados correspondientes.");
-$nota2 = utf8_decode("De conformidad con el numeral 7. Comercialización de la NOM-070-SCFI-2016,  el Sello de Certificación (holograma) debe colocarse abarcando parte de la etiqueta que se encuentra en la superficie principal de exhibición y parte del envase.");
-
+// Notas con la nueva conversión de caracteres
+$nota1 = convISO("El cliente de AMMA se obliga a utilizar los folios de hologramas entregados para los lotes descritos en la solicitud de ingreso, en caso de utilizar dichos hologramas en lotes distintos a los mencionados en el presente acuse, los lotes deberán ser certificados o en proceso de certificación, por lo que deberá notificar al inspector en turno dicho uso para que constate el cumplimiento con la NOM Mezcal vigente y quede manifestado en dictamen. En caso contrario se procederá a cancelar los hologramas y no se realizará la emisión de los certificados correspondientes.");
+$nota2 = convISO("De conformidad con el numeral 7. Comercialización de la NOM-070-SCFI-2016, el Sello de Certificación (holograma) debe colocarse abarcando parte de la etiqueta que se encuentra en la superficie principal de exhibición y parte del envase.");
 try
 {
     $pdf = new PDF_MC_Table();

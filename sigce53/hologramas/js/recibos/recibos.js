@@ -164,9 +164,10 @@ function getReciboNum()
 	  type: "POST",
 	  url: "php/recibos/getReciboNum.php",
 	  contentType: "application/x-www-form-urlencoded;charset=UTF-8",
-	  datatype: 'json',
+	  dataType: 'json',
 	  success: function(response){
-		   var  data=JSON.parse(response);
+		   var data = (typeof response === 'object') ? response : JSON.parse(response);
+
 		  if(data.status==='correcto')
 		  {
 			  var myYear = new Date();
@@ -198,9 +199,9 @@ function cargaMarcas()
 	  url: "php/cbo_marca.php",
 	  contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 	  data: "cliente="+cte+'&id=cbo_marcas'+'&funcion=checa_estados',
-	  datatype: 'json',
+	  dataType: 'json',
 	  success: function(response){
-		  var jcbo=JSON.parse(response);
+		  var jcbo = (typeof response === 'object') ? response : JSON.parse(response);
 		  if(jcbo.status==='correcto')
 		  {
 		    $('#cbo_m').html(jcbo.cbo);
@@ -238,10 +239,11 @@ function checa_estados()
 		  url: "php/checaEstados.php",
 		  contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 		  data: "cliente="+cte+"&marca="+marc,
-		  datatype: 'json',
+		  dataType: 'json',
 		  success: function(response){
 		      //alert(response);
-			  var data_r=JSON.parse(response);
+			  // Validación de tipo segura para evitar SyntaxError: "[object Object]"
+              var data_r = (typeof response === 'object') ? response : JSON.parse(response);
 			  if(data_r.num_res>0)
 			  {
 				   var firs_edo="";
@@ -290,10 +292,11 @@ function getCategorias()
 		  url: "php/recibos/getCategorias.php",
 		  contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 		  data: "cliente="+cte+"&marca="+$('#cbo_marcas option:selected').val()+"&edo="+$('#cboEdo option:selected').val(),
-		  datatype: 'json',
+		  dataType: 'json',
 		  success: function(response){
 		     //alert(response);
-			 var data_r=JSON.parse(response);
+			 // Validación de tipo segura para evitar SyntaxError: "[object Object]"
+             var data_r = (typeof response === 'object') ? response : JSON.parse(response);
 			 if(data_r.num_res>0)
 			  {
 				  num_tipos=0;
@@ -366,9 +369,10 @@ function cargaExistencias()
 		  url: "php/recibos/cargaExistencias.php",
 		  contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 		  data: datos_env,
-		  datatype: 'json',
+		  dataType: 'json',
 		  success: function(response){
-			 var data_r=JSON.parse(response);
+			 // Validación de tipo segura para evitar SyntaxError: "[object Object]"
+             var data_r = (typeof response === 'object') ? response : JSON.parse(response);
 			 if(data_r.status==="OK")
 			 {
 				 if(data_r.num_res>0)
@@ -729,9 +733,10 @@ function reciboSimple()
 						url: "php/recibos/add_recibo.php",
 						contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 						data: "grales="+JSON.stringify(grales)+"&arr_data="+JSON.stringify(folios_carrito),
-						datatype: 'json',
+						dataType: 'json',
 						success: function(data){
-							var data_r=JSON.parse(data);
+							// Validación de tipo segura para evitar SyntaxError: "[object Object]"
+             				var data_r = (typeof data === 'object') ? data : JSON.parse(data);
 							if(data_r.status==='OK') {
 								getReciboNum();
 								limpiar_datos('nivCliente');
@@ -865,9 +870,9 @@ function reciboMultiple()
 						url: "php/recibos/add_reciboCarrito.php",
 						contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 						data: "grales="+JSON.stringify(grales)+"&arr_data="+JSON.stringify(folios_carrito),
-						datatype: 'json',
+						dataType: 'json',
 						success: function(data){
-							var data_r=JSON.parse(data);
+							var data_r = (typeof data === 'object') ? data : JSON.parse(data);
 							if(data_r.status==='OK')
 							{
 								borra_carrito();
@@ -1307,9 +1312,10 @@ function nextMarca()
 	  url: "php/get_marca.php",
 	  contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 	  data: "cliente="+cte_nmarca,
-	  datatype: 'json',
+	  dataType: 'json',
 	  success: function(response){
-		  var jmarcas=JSON.parse(response);
+		//Se valida el tipo de dato para evitar el SyntaxError
+		  var jmarcas = (typeof response === 'object') ? response : JSON.parse(response);
 		  if(jmarcas.status==='correcto')
 		  {
 		    $('#marcas_d').html(jmarcas.lista);
@@ -1338,9 +1344,10 @@ function GuardaMarca()
 		  url: "php/add_marca.php",
 		  contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 		  data: datos_env,
-		  datatype: 'json',
+		  dataType: 'json',
 		  success: function(response){
-			  jaddmca=JSON.parse(response);
+			  // Parseo seguro: si ya es objeto se usa tal cual, si es string se parsea
+			  var jaddmca = (typeof response === 'object') ? response : JSON.parse(response);
 			  if(jaddmca.status=='OK')
 			  {
 			      if(jaddmca.remoto=='OK')

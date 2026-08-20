@@ -1,4 +1,8 @@
 <?php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+ini_set('display_errors', '0');
+
+header('Content-Type: application/json; charset=utf-8');
 try {
 	$arr_exs = array();
 	include("../../../common/conexion.php");
@@ -30,8 +34,15 @@ try {
 	{
 		while($row=$result->fetch_assoc())
 		{
-		  array_push($arr_exs, array("id"=>$row["id_existencias"],"marca" => utf8_encode($row["marca"]),"edo" => utf8_encode($row["edo"]),"tipo" => $row["tipo"],"serie" => utf8_encode($row["serie"]),"fol_ini" => $row["fol_ini"],"fol_fin" => $row["fol_fin"],"existencias" => $row["existencias"],
-		  		"cliente_crm" => $row["cliente_crm"], "marca_crm" => $row["marca_crm"] ) );
+		  array_push($arr_exs, array(
+			"id"          => $row["id_existencias"],
+    		"marca"       => mb_convert_encoding($row["marca"] ?? '', 'UTF-8', 'ISO-8859-1'),
+    		"edo"         => mb_convert_encoding($row["edo"] ?? '', 'UTF-8', 'ISO-8859-1'),
+    		"tipo"        => $row["tipo"],
+    		"serie"       => mb_convert_encoding($row["serie"] ?? '', 'UTF-8', 'ISO-8859-1'),
+    		"fol_ini"     => $row["fol_ini"],
+    		"fol_fin"     => $row["fol_fin"],
+    		"existencias" => $row["existencias"]));
 		}
 	}
 	$resultm = $conexion->query($sqlm);
