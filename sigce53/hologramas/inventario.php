@@ -1,9 +1,28 @@
 <?php
+// CAMBIO 1: config.php directo + session_set_cookie_params array + session_start en orden correcto
+require_once __DIR__ . '/../common/config.php';
+
+$cookie_domain = preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? '');
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'domain'   => $cookie_domain,
+    'secure'   => ($protocolo_actual === 'https:'),
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 session_start();
-session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
+
 $mod=1;
-require_once('../common/cfg_server.php');
-$d_s=$_GET['d_s'];
+
+// CAMBIO 2: null coalescing para $d_s
+$d_s = $_GET['d_s'] ?? '';
+
+// CAMBIO 3: helper para escapar salidas a HTML
+function h(mixed $val): string {
+    return htmlspecialchars((string)$val, ENT_QUOTES, 'UTF-8');
+}
+
 if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
 {
   if($_SESSION[$d_s]['cargo']==13 && $_SESSION[$d_s]['sec_lvl_1_2']==1)
@@ -43,12 +62,13 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
     <!-- Custom Fonts -->
     <link href="../css/font-awesome.min.css" rel="stylesheet" type="text/css">
     <script type="text/javascript">
-     var id_s="<?php echo $d_s; ?>";
-     var id_depto="<?php echo $_SESSION[$d_s]['dpto']; ?>";
-     var usr_cargo="<?php echo $_SESSION[$d_s]['cargo']; ?>";
-     var user="<?php echo $_SESSION[$d_s]['s_username'];?>";
-    var clvuser="<?php echo $_SESSION[$d_s]['id_us'];?>";
-    var nivel = "<?php echo $_SESSION[$d_s]['sec_lvl_1_2'];?>";
+     // CAMBIO 4: h() en variables JS
+     var id_s="<?php echo h($d_s); ?>";
+     var id_depto="<?php echo h($_SESSION[$d_s]['dpto']); ?>";
+     var usr_cargo="<?php echo h($_SESSION[$d_s]['cargo']); ?>";
+     var user="<?php echo h($_SESSION[$d_s]['s_username']);?>";
+    var clvuser="<?php echo h($_SESSION[$d_s]['id_us']);?>";
+    var nivel = "<?php echo h($_SESSION[$d_s]['sec_lvl_1_2']);?>";
   var moduloAcceso=1;
   var seccionAcceso=2;
 
@@ -67,7 +87,8 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <a class="navbar-brand" href="../index.php?d_s=<?php echo $d_s?>"><i class="fa fa-lg fa-home" aria-hidden="true"></i> SIGCE</a>
+                <!-- CAMBIO 5: h() en href -->
+                <a class="navbar-brand" href="../index.php?d_s=<?php echo h($d_s)?>"><i class="fa fa-lg fa-home" aria-hidden="true"></i> SIGCE</a>
               <div class="menu-toggler sidebar-toggler">
 
                                   <span class="sr-only">Toggle navigation</span>
@@ -137,7 +158,8 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                           <li><a href="#"><i class="fa fa-gear fa-fw"></i> Configuraciones</a>
                           </li>
                           <li class="divider"></li>
-                          <li><a href="../acceso/cerrar.php?d_s=<?php echo $d_s?>"><i class="fa fa-sign-out fa-fw"></i> Salir</a>
+                          <!-- CAMBIO 5: h() en href -->
+                          <li><a href="../acceso/cerrar.php?d_s=<?php echo h($d_s)?>"><i class="fa fa-sign-out fa-fw"></i> Salir</a>
                           </li>
                       </ul>
                       <!-- /.dropdown-user -->
@@ -202,7 +224,8 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                     <div class="col-lg-8">
                                           <div id="opt_invent"><!-- Inicia Opciones -->
                                             <form class="form-horizontal" id="formOpt" role="form" action='' method='post'>
-                                              <div class="form-group">
+                                              <!-- INSTRUCCIÓN: toggle Genéricos ocultado — solo se usan Personalizados -->
+                                              <div class="form-group" style="display:none">
                                                <label for="formOpt" class="col-lg-7 control-label">Tipo Hologramas:</label>
                                                 <div class="col-lg-5">
                                                   <span id="demo-events"><input type="checkbox" id="tipo_hol" checked data-toggle="toggle" data-size="normal" data-on="Personalizados" data-off="Genericos" data-onstyle="success" data-offstyle="info" onChange="tipo_holograma()"></span>
@@ -212,16 +235,17 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                           </div><!-- Termina Opciones -->
                                           <div id="datos_entrega"><!-- Contenido Inventario-->
                                               <form class="form-horizontal" id="formEntrada" name="formEntrada" target="_blank"  role="form" action='' method='post'>
-                                               <input type="hidden" name='usr' id='usr' value='<?php echo $_SESSION[$d_s]['s_username'];?>'/>
-                                               <input type="hidden" name='cargo' id='cargo' value='<?php echo $_SESSION[$d_s]['cargo'];?>'/>
-                                                <input type="hidden" name='nivel_inventario' id='nivel_inventario' value='<?php echo $_SESSION[$d_s]['sec_lvl_1_2'];?>'/>
+                                               <!-- CAMBIO 6: h() en inputs hidden -->
+                                               <input type="hidden" name='usr' id='usr' value='<?php echo h($_SESSION[$d_s]['s_username']);?>'/>
+                                               <input type="hidden" name='cargo' id='cargo' value='<?php echo h($_SESSION[$d_s]['cargo']);?>'/>
+                                                <input type="hidden" name='nivel_inventario' id='nivel_inventario' value='<?php echo h($_SESSION[$d_s]['sec_lvl_1_2']);?>'/>
                                                   <div class="form-group" id='txt_cliente'>
                                                     <label for="formEntrada" class="col-lg-7 control-label">No. de Control:</label>
                                                     <div class="col-lg-5">
                                                     <input type='text' name='cliente' id='cliente' value='' class='form-control txt-short auto'>
                                                     </div>
                                                   </div>
-                                              <?php 
+                                              <?php
                                                 if($_SESSION[$d_s]['cargo']==13 && $_SESSION[$d_s]['sec_lvl_1_2']==1){
                                               	//if($_SESSION[$d_s]['cargo']==13 ) {
                                               	?>
@@ -310,8 +334,8 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                               </form>
                                           </div><!-- Fin Contenido Inventario-->
                                     </div>
-                                         
-                                    	                                     
+
+
                                  </div>
                                  <div class="col-lg-4">
                                        <div id="toggle_vista" class="toggler" style="width:100%; display:none;">
@@ -344,8 +368,9 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                                           <span id="demo-events"><input type="checkbox" id="tipo_hol_req" checked data-toggle="toggle" data-size="normal" data-on="Personalizados" data-off="Genericos" data-onstyle="success" data-offstyle="info" onChange="tipo_holograma_req()"></span>
                                                       </div>
                                                   </div>
-                                                    <input type="hidden" name='usr' id='usr' value='<?php echo $_SESSION[$d_s]['s_username'];?>'/>
-                                                    <input type="hidden" name='cargo' id='cargo' value='<?php echo $_SESSION[$d_s]['cargo'];?>'/>
+                                                    <!-- CAMBIO 6: h() en inputs hidden de formReq -->
+                                                    <input type="hidden" name='usr' id='usr' value='<?php echo h($_SESSION[$d_s]['s_username']);?>'/>
+                                                    <input type="hidden" name='cargo' id='cargo' value='<?php echo h($_SESSION[$d_s]['cargo']);?>'/>
                                                     <div class="form-group" id='txt_cliente_req'>
                                                         <label for="formReq" class="col-lg-3 control-label">No. de Control:</label>
                                                         <div class="col-lg-9">
@@ -818,13 +843,13 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                                   --light-bg: #f8f9fa;
                                                   --border-color: #dee2e6;
                                               }
-                                              
+
                                               .dialog-container {
                                                   max-width: 500px;
                                                   margin: 0 auto;
-                                                  
+
                                               }
-                                              
+
                                               .dialog-header {
                                                   display: flex;
                                                   align-items: center;
@@ -832,50 +857,50 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                                   padding-bottom: 15px;
                                                   border-bottom: 1px solid var(--border-color);
                                               }
-                                              
+
                                               .dialog-icon {
                                                   color: var(--warning-color);
                                                   margin-right: 12px;
                                                   font-size: 1.8rem;
                                               }
-                                              
+
                                               .dialog-title {
                                                   font-weight: 600;
                                                   color: #333;
                                                   margin: 0;
                                               }
-                                              
+
                                               .form-section {
                                                   margin-bottom: 10px;
                                                   padding: 10px;
                                                   background-color: var(--light-bg);
                                                   border-radius: 8px;
                                               }
-                                              
+
                                               .form-section-title {
                                                   font-weight: 600;
                                                   margin-bottom: 10px;
                                                   color: var(--primary-color);
                                                   font-size: 1.1rem;
                                               }
-                                              
+
                                               .file-upload-container {
                                                   margin-top: 10px;
                                               }
-                                              
+
                                               .file-upload-label {
                                                   display: block;
                                                   margin-bottom: 8px;
                                                   font-weight: 500;
                                               }
-                                              
+
                                               .file-input-wrapper {
                                                   position: relative;
                                                   overflow: hidden;
                                                   display: inline-block;
                                                   width: 100%;
                                               }
-                                              
+
                                               .file-input-wrapper input[type=file] {
                                                   position: absolute;
                                                   left: 0;
@@ -885,7 +910,7 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                                   height: 100%;
                                                   cursor: pointer;
                                               }
-                                              
+
                                               .file-input-button {
                                                   display: inline-block;
                                                   padding: 8px 16px;
@@ -896,13 +921,13 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                                   width: 100%;
                                                   text-align: center;
                                               }
-                                              
+
                                               .file-name {
                                                   margin-top: 8px;
                                                   font-size: 0.9rem;
                                                   color: #666;
                                               }
-                                              
+
                                               .dialog-actions {
                                                   display: flex;
                                                   justify-content: flex-end;
@@ -911,30 +936,30 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                                   padding-top: 10px;
                                                   border-top: 1px solid var(--border-color);
                                               }
-                                              
+
                                               #btn-cancel {
                                                   background-color: #6c757d !important;
                                                   color: white !important;
                                                   border: none !important;
                                               }
-                                              
+
                                               #btn-confirm {
                                                   background-color: var(--primary-color) !important;
                                                   color: white !important;
                                                   border: none !important;
                                               }
-                                              
+
                                               #btn-cancel:hover, #btn-confirm:hover {
                                                   opacity: 0.9;
                                               }
-                                              
+
                                               .hidden {
                                                   display: none !important;
                                               }
                                       </style>
 
                                       <div id="dialog_pago_online_otro" class="dialog-container" style="display:none; width:400px;">
-                                        
+
                                         <!--<div class="form-section">
                                             <h3 class="form-section-title">Prioridad</h3>
                                             <div class="mb-2">
@@ -957,7 +982,7 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                                 </select>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="form-section">
                                             <h3 class="form-section-title">Tipo de pago:</h3>
                                             <div class="mb-2">
@@ -971,7 +996,7 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
                                                 </select>
                                             </div>
                                         </div>
-                                        
+
                                         <div id="comprobante_section_otro" class="form-section hidden">
                                             <h3 class="form-section-title">Comprobante de pago</h3>
                                             <div class="file-upload-container">
@@ -1101,6 +1126,8 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
       }
       else
       {
-         header("location: http://".$svr_dir."/sigce/acceso/login.php");
+         // CAMBIO 7: redirección usa protocolo correcto + APP_BASE_PATH + exit obligatorio
+         header('Location: ' . $protocolo_actual . '//' . $_SERVER['HTTP_HOST'] . APP_BASE_PATH . '/acceso/login.php');
+         exit;
       }
       ?>

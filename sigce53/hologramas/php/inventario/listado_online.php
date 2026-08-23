@@ -1,27 +1,27 @@
 <?php
-    $page = $_POST['page'];  // Almacena el numero de pagina actual
-    $limit = $_POST['rows']; // Almacena el numero de filas que se van a mostrar por pagina
-    $sidx = $_POST['sidx'];  // Almacena el indice por el cual se har� la ordenaci�n de los datos
-    $sord = $_POST['sord'];  // Almacena el modo de ordenaci�n
-	$depto=$_POST['depto'];
-	$cargo=$_POST['cargo'];
-	$idus = $_POST['clvuser'];
+    $page = $_POST['page'] ?? 1;  // Almacena el numero de pagina actual
+    $limit = $_POST['rows'] ?? 10; // Almacena el numero de filas que se van a mostrar por pagina
+    $sidx = $_POST['sidx'] ?? ''; // Almacena el indice por el cual se har· la ordenaci·n de los datos
+    $sord = $_POST['sord'] ?? ''; // Almacena el modo de ordenaci·n
+	$depto=$_POST['depto'] ?? '';
+	$cargo=$_POST['cargo'] ?? '';
+	$idus = $_POST['clvuser'] ?? '';
 	$anio_b="";
 	$fecha_ini="";
-	$nivel = $_POST['nivel'];
+	$nivel = $_POST['nivel'] ?? '';
 	include("../../../common/conexion.php");
 	include('../../../common/cfg_server.php');
   mysqli_set_charset($conexion,"utf8");
 	//REVISAMOS SI SE RECIBIO UN CAMPO PARA FILTRAR
   $condiciones =  "";
 	if(isset($_POST['campo'])) {
-		$clave=$_POST['valor'];
-		$campo=$_POST['campo'];
+		$clave=$_POST['valor'] ?? '';
+		$campo=$_POST['campo'] ?? '';
 		if($campo == "todos") {
-			$clave1 = $_POST['valor1'];
-			$clave2 = $_POST['valor2'];
-			$clave3 = $_POST['valor3'];
-			$clave4 = $_POST['valor4'];
+			$clave1 = $_POST['valor1'] ?? '';
+			$clave2 = $_POST['valor2'] ?? '';
+			$clave3 = $_POST['valor3'] ?? '';
+			$clave4 = $_POST['valor4'] ?? '';
 			if($clave1 != "")
 				$condiciones .= " shp.id_solicitud = '".$clave1."' ";
 			if($clave2 != "") {
@@ -48,13 +48,13 @@
 	        }
 	    }
 		if(!$sidx) $sidx =1;
-		// Se crea la conexi�n a la base de datos
+		// Se crea la conexi·n a la base de datos
 	    // Se hace una consulta para saber cuantos registros se van a mostrar
-		$sql_cont="SELECT count(*) as count 
+		$sql_cont="SELECT count(*) as count
 		FROM sh_pedidos shp
-		INNER JOIN solicitudes ON solicitudes.id=shp.id_solicitud 
+		INNER JOIN solicitudes ON solicitudes.id=shp.id_solicitud
 		INNER JOIN sh_detalle ON sh_detalle.id_solicitud=shp.id_solicitud
-		INNER JOIN marcas ON marcas.no_cliente=shp.no_cliente AND marcas.cve_marca=sh_detalle.marca 
+		INNER JOIN marcas ON marcas.no_cliente=shp.no_cliente AND marcas.cve_marca=sh_detalle.marca
 		WHERE $condiciones";
                 //echo $sql_cont;
 		//echo $sql_cont;
@@ -77,10 +77,10 @@
 			$start=0;
 		}
 		//Consulta que devuelve los registros de una sola pagina
-		$consulta = "SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud, 
-							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo, 
+		$consulta = "SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud,
+							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo,
 							sh_detalle.edo, 				sh_detalle.urgente,		  sh_detalle.cantidad, 			sh_detalle.importe,	  sh_detalle.status,
-							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora, 
+							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora,
 							sh_detalle.pago_opcion pago_opcion, sh_detalle.pago_promo
 		FROM sh_pedidos shp INNER JOIN solicitudes ON solicitudes.id=shp.id_solicitud
 		INNER JOIN sh_detalle ON sh_detalle.id_solicitud=shp.id_solicitud
@@ -89,6 +89,7 @@
 		//echo $consulta;
 		$result = $conexion->query($consulta);
 		// Se agregan los datos de la respuesta del servidor
+		$respuesta = new stdClass(); // PHP 8: debe inicializarse antes de asignar propiedades
 		$respuesta->page[0] = $page;
 		$respuesta->total[0] = $total_pages;
 		$respuesta->records[0] = $count;
@@ -185,7 +186,7 @@
 				}
 			}
 			$status = ($fila["status"] != 7 && $fila["status"] != 1) ? ("$status<br><span style='font-size: 8px;color:blue;'>$pago_opcion</span>"): $status;
-			//. 
+			//.
 			switch($fila["tipo"])
 			{
 				case 0:
@@ -280,7 +281,7 @@
 	} else {
 
 		if(!$sidx) $sidx =1;
-		// Se crea la conexi�n a la base de datos
+		// Se crea la conexi·n a la base de datos
 		// Se hace una consulta para saber cuantos registros se van a mostrar
 		$result = $conexion->query("SELECT count(*) as count FROM sh_pedidos INNER JOIN solicitudes ON solicitudes.id=sh_pedidos.id_solicitud INNER JOIN sh_detalle ON sh_detalle.id_solicitud=sh_pedidos.id_solicitud
 			INNER JOIN marcas ON marcas.no_cliente=sh_pedidos.no_cliente AND marcas.cve_marca=sh_detalle.marca");
@@ -302,22 +303,22 @@
 			$start=0;
 		}
 
-		/*SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud, 
-							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo, 
+		/*SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud,
+							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo,
 							sh_detalle.edo, 				sh_detalle.urgente,		  sh_detalle.cantidad, 			sh_detalle.importe,	  sh_detalle.status,
-							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora, 
+							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora,
 							sh_detalle.pago_opcion pago_opcion
-		FROM sh_pedidos shp 
+		FROM sh_pedidos shp
 		INNER JOIN solicitudes ON solicitudes.id=sh_pedidos.id_solicitud
 		INNER JOIN sh_detalle ON sh_detalle.id_solicitud=sh_pedidos.id_solicitud
 		INNER JOIN marcas ON marcas.no_cliente = sh_pedidos.no_cliente AND marcas.cve_marca=sh_detalle.marca
 		where $condiciones  ORDER BY sh_pedidos.id_solicitud desc limit $start , $limit*/
 
 		//Consulta que devuelve los registros de una sola pagina
-		$consulta = "SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud, 
-							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo, 
+		$consulta = "SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud,
+							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo,
 							sh_detalle.edo, 				sh_detalle.urgente,		  sh_detalle.cantidad, 			sh_detalle.importe,	  sh_detalle.status,
-							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora, 
+							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora,
 							sh_detalle.pago_opcion pago_opcion, sh_detalle.pago_promo
 						FROM sh_pedidos shp INNER JOIN solicitudes ON solicitudes.id=shp.id_solicitud
 						INNER JOIN sh_detalle ON sh_detalle.id_solicitud=shp.id_solicitud
@@ -327,6 +328,7 @@
 		//echo $consulta;
 		$result = $conexion->query($consulta);
 		// Se agregan los datos de la respuesta del servidor
+		$respuesta = new stdClass(); // PHP 8: debe inicializarse antes de asignar propiedades
 		$respuesta->page[0] = $page;
 		$respuesta->total[0] = $total_pages;
 		$respuesta->records[0] = $count;
@@ -502,7 +504,7 @@
 			//$txtdivide = ($divide == "0.9" || $divide == "1.35" || $fila["id"] == 1425) ? "<br><span style='font-size: 8px;color:red;'>BUEN FIN</span>": "";
 			$txtdivide = ($fila["pago_promo"] == "1") ? "<br><span style='font-size: 8px;color:red;'>BUEN FIN</span>": "";
 			$importe="$ ".number_format($fila["importe"], 2, '.', ',') . $txtdivide;
-			//$importe .= 
+			//$importe .=
 
 			$respuesta->rows[$i]["id"]=$fila["id_det"];
 			$folio = ($fila["id"] < 33159) ? $fila["folio"] . "/" .substr($fila["anio"], -2, 2) : $fila["folio"];

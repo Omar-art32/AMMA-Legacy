@@ -1,11 +1,11 @@
 <?php
-    $page = $_POST['page'];  // Almacena el numero de pagina actual
-    $limit = $_POST['rows']; // Almacena el numero de filas que se van a mostrar por pagina
-    $sidx = $_POST['sidx'];  // Almacena el indice por el cual se har� la ordenaci�n de los datos
-    $sord = $_POST['sord'];  // Almacena el modo de ordenaci�n
-	$depto=$_POST['depto'];
-	$cargo=$_POST['cargo'];
-	$idus = $_POST['clvuser'];
+    $page = $_POST['page'] ?? 0;  // Almacena el numero de pagina actual
+    $limit = $_POST['rows'] ?? 0; // Almacena el numero de filas que se van a mostrar por pagina
+    $sidx = $_POST['sidx'] ?? ''; // Almacena el indice por el cual se har· la ordenaci·n de los datos
+    $sord = $_POST['sord'] ?? ''; // Almacena el modo de ordenaci·n
+	$depto=$_POST['depto'] ?? '';
+	$cargo=$_POST['cargo'] ?? '';
+	$idus = $_POST['clvuser'] ?? '';
 	$anio_b="";
 	$fecha_ini="";
 	//REVISAMOS SI SE RECIBIO UN CAMPO PARA FILTRAR
@@ -14,7 +14,7 @@
 		$clave=$_POST['clave'];
 		$campo=$_POST['campo'];
 		if(!$sidx) $sidx =1;
-		// Se crea la conexi�n a la base de datos
+		// Se crea la conexi·n a la base de datos
 		//$conexion = new mysqli("localhost","root","SIIGsql#2021v2","siig");
 		include("../../../common/conexion.php");
     	mysqli_set_charset($conexion,"utf8");
@@ -39,7 +39,7 @@
 			$page=$total_pages;
 
 		//Almacena numero de registro donde se va a empezar a recuperar los registros para la pagina
-		$start = $limit*$page - $limit;
+		$start = max(0, $limit*$page - $limit); // Bug fix: evita LIMIT negativo cuando no hay registros
 
 		//Consulta que devuelve los registros de una sola pagina
 
@@ -70,6 +70,7 @@
 		$result = $conexion->query($consulta);
 	    //echo $consulta;
 		// Se agregan los datos de la respuesta del servidor
+		$respuesta = new stdClass(); // PHP 8: debe inicializarse antes de asignar propiedades
 		$respuesta->page[0] = $page;
 		$respuesta->total[0] = $total_pages;
 		$respuesta->records[0] = $count;
@@ -207,7 +208,7 @@
 	else
 	{
 		if(!$sidx) $sidx =1;
-		// Se crea la conexi�n a la base de datos
+		// Se crea la conexi·n a la base de datos
 		//$conexion = new mysqli("localhost","root","SIIGsql#2021v2","siig");
 		include("../../../common/conexion.php");
     	mysqli_set_charset($conexion,"utf8");
@@ -225,7 +226,7 @@
 		if ($page > $total_pages)
 			$page=$total_pages;
 		//Almacena numero de registro donde se va a empezar a recuperar los registros para la pagina
-		$start = $limit*$page - $limit;
+		$start = max(0, $limit*$page - $limit); // Bug fix: evita LIMIT negativo cuando no hay registros
 		//
 		$consultanr = "SELECT h_pedidos.id_row, h_pedidos.no_pedido, DATE(h_pedidos.fecha) fecha, h_pedidos.no_cliente, h_pedidos.marca cve ,
 		h_pedidos.serie, marcas.marca, h_pedidos.edo, h_pedidos.tipo, h_pedidos.fi, h_pedidos.ff, h_pedidos.cantidad, h_pedidos.status, h_pedidos.urgente,
@@ -248,6 +249,7 @@
 		ORDER BY $sidx $sord limit $start , $limit";
 		$result = $conexion->query($consulta);
 		// Se agregan los datos de la respuesta del servidor
+		$respuesta = new stdClass(); // PHP 8: debe inicializarse antes de asignar propiedades
 		$respuesta->page[0] = $page;
 		$respuesta->total[0] = $total_pages;
 		$respuesta->records[0] = $count;
@@ -270,8 +272,8 @@
 					if($fila['status']==0&&$cargo==14)
 					{
 						$acciones="<button type='button' name='btnReenviar' id='btnReenviar' class='btn btn-success btn-md' style='margin-top:0;' onClick='re_enviar($new_value);'>
-											<span class='glyphicon glyphicon-upload'></span>
-										   </button>";
+										<span class='glyphicon glyphicon-upload'></span>
+									   </button>";
 					}
 				}
 				else
@@ -375,11 +377,11 @@
 				else
 					$comp = '<p title="'.$fila["tipo_pago"].'" >'.$tp.'<p>';
 				$fpago = ($cargo == 7 || $cargo == 12 || $cargo == 13 || $cargo == 20 || $idus == 1)?$comp:'';
-				
+
 				$holograma = ($fila["holograma"] == '1')?"NUEVO V1":(($fila["holograma"] == '2')?"NUEVO V2":"GENÉRICO");
 				$respuesta->rows[$i]["id"]=$fila["id_row"];
 				$respuesta->rows[$i]["cell"]=array($fila["no_pedido"], $fila["folio"],$fila["fecha"],$fila["no_cliente"],$fila["marca"],$fila["edo"],$tipo_mez,$f_ini,$f_fin,$fila["cantidad"],$holograma,$prioridad,$status,$acciones,$fpago);
-				$i++;		
+				$i++;
 			}
 		}
 		// La respuesta se regresa como json
