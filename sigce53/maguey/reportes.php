@@ -1,10 +1,30 @@
 <?php
+declare(strict_types=1);
+
+/*
+ * PHP 8.3 — mismas correcciones que buscar.php:
+ *  - session_set_cookie_params ANTES de session_start (en 8.x no aplica después)
+ *  - sin HTTP_HOST como dominio de cookie; httponly + samesite
+ *  - $_GET['d_s'] con ?? (evita Undefined array key)
+ */
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'domain'   => '',
+    'secure'   => isset($_SERVER['HTTPS']),
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 session_start();
-session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
-$mod=1;
-require_once('../common/cfg_server.php');
-$d_s=$_GET['d_s'];
-if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_5"] == "logged")
+
+$mod = 1;
+require_once __DIR__ . '/../common/cfg_server.php';
+
+$d_s = $_GET['d_s'] ?? '';
+
+if ($d_s !== ''
+    && isset($_SESSION[$d_s]['seccion_4_5'])
+    && $_SESSION[$d_s]['seccion_4_5'] === 'logged')
 {
 ?>
 <!DOCTYPE html>
@@ -33,9 +53,9 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_5"] == "logged")
     <!-- Custom Fonts -->
     <link href="../css/font-awesome.min.css" rel="stylesheet" type="text/css">
     <script type="text/javascript">
-	  var user="<?php echo $_SESSION[$d_s]['s_username']; ?>";
-	  var clvuser="<?php echo $_SESSION[$d_s]['id_us'];?>";
-    var cargo = "<?php echo $_SESSION[$d_s]['cargo'];?>";
+	  var user=<?php echo json_encode($_SESSION[$d_s]['s_username'] ?? ''); ?>;
+	  var clvuser=<?php echo json_encode($_SESSION[$d_s]['id_us'] ?? ''); ?>;
+    var cargo = <?php echo json_encode($_SESSION[$d_s]['cargo'] ?? ''); ?>;
 
 	  var moduloAcceso=1;
 	  var seccionAcceso=4;
@@ -56,7 +76,7 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_5"] == "logged")
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <a class="navbar-brand" href="../index.php?d_s=<?php echo $d_s?>"><i class="fa fa-lg fa-home" aria-hidden="true"></i> SIGCE</a>
+                <a class="navbar-brand" href="../index.php?d_s=<?php echo urlencode($d_s)?>"><i class="fa fa-lg fa-home" aria-hidden="true"></i> SIGCE</a>
               <div class="menu-toggler sidebar-toggler">
 
                                   <span class="sr-only">Toggle navigation</span>
@@ -128,7 +148,7 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_5"] == "logged")
 	                        <li><a href="#"><i class="fa fa-gear fa-fw"></i> Configuraciones</a>
 	                        </li>
 	                        <li class="divider"></li>
-	                        <li><a href="../acceso/cerrar.php?d_s=<?php echo $d_s?>"><i class="fa fa-sign-out fa-fw"></i> Salir</a>
+	                        <li><a href="../acceso/cerrar.php?d_s=<?php echo urlencode($d_s)?>"><i class="fa fa-sign-out fa-fw"></i> Salir</a>
 	                        </li>
 	                    </ul>
 	                    <!-- /.dropdown-user -->
@@ -151,7 +171,7 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_5"] == "logged")
             <div class="navbar-default sidebar" role="navigation">
                 <div class="sidebar-nav navbar-collapse" id="sidebar-area">
                     <ul class="nav" id="sidebar">
-                       <?php echo $_SESSION[$d_s]['links'];?>
+                       <?php echo $_SESSION[$d_s]['links'] ?? ''; ?>
                     </ul>
                 </div>
                 <!-- /.sidebar-collapse -->
@@ -475,6 +495,8 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_5"] == "logged")
 }
 else
 {
-   header("location: http://".$svr_dir."/sigce/acceso/login.php");
+    $esquema = isset($_SERVER['HTTPS']) ? 'https' : 'http';
+    header('Location: ' . $esquema . '://' . $svr_dir . '/sigce/acceso/login.php');
+    exit;
 }
 ?>
