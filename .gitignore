@@ -3,3 +3,4 @@ php.ini
 vendor/
 .rector-cache
 rector.php
+sigce53/maguey/tmp_excel/
