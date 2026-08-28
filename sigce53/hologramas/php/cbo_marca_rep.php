@@ -1,6 +1,6 @@
 <?php
-include('../../common/conexion.php');
-$client=utf8_decode ($_POST['cliente']);
+include(__DIR__ . '/../../common/conexion.php');
+$client=mb_convert_encoding ($_POST['cliente'], 'ISO-8859-1');
 //$client=substr($client,0,4);
 //$usr=$_POST['user'];
 //$fecha = date("Y-m-d H:i:s" );
@@ -21,16 +21,16 @@ else
 	while($row=$result->fetch_row())
 	{
 	  $cve=$row[0];
-	  $marca=utf8_encode($row[1]);
+	  $marca=mb_convert_encoding($row[1], 'UTF-8', 'ISO-8859-1');
 	  $cbo.= "<option  value={$cve}>{$cve} - {$marca}</option>";
 	}
 	$cbo.="</select>";
-	echo json_encode(array('status' => 'correcto','cbo'=> $cbo));
+	echo json_encode(['status' => 'correcto','cbo'=> $cbo]);
   }
   else
   {
 	  $msj="<font color='#990000'>Sin Marcas&nbsp;&nbsp;</font>";
-	echo json_encode(array('status' => 'error','msj'=> $msj));
+	echo json_encode(['status' => 'error','msj'=> $msj]);
   }
 }		 
 
