@@ -1,10 +1,34 @@
 <?php
-    session_start();
-    session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
-    require_once('../common/cfg_server.php');
-    $d_s=$_GET['d_s'];
-    if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_4_3"] == "logged")
-    {
+/**
+ * constancias.php — PHP 8.3
+ * Pantalla de constancias: 4 pestañas (Predios, Extracción, Viveros, Extracción Viveros).
+ * Las tablas se llenan vía AJAX (funcionTraePrevio, funcionTraeExtraccion, etc.)
+ *
+ * Cambios vs 5.6:
+ *  - session_set_cookie_params antes de session_start, sin HTTP_HOST
+ *  - Variables de sesión en JS escapadas con json_encode
+ *  - URLs con urlencode($d_s)
+ *  - header() con exit y detección de protocolo
+ *  - Comparación estricta === en sesión
+ */
+declare(strict_types=1);
+
+session_set_cookie_params([
+    'lifetime' => 0, 'path' => '/', 'domain' => '',
+    'secure' => isset($_SERVER['HTTPS']),
+    'httponly' => true, 'samesite' => 'Lax',
+]);
+session_start();
+
+$mod = 1;
+require_once __DIR__ . '/../common/cfg_server.php';
+
+$d_s = $_GET['d_s'] ?? '';
+
+if ($d_s !== ''
+    && isset($_SESSION[$d_s]['seccion_4_3'])
+    && $_SESSION[$d_s]['seccion_4_3'] === 'logged')
+{
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -37,11 +61,11 @@
 
 
     <script type="text/javascript">
-      var id_s="<?php echo $d_s; ?>";
-      var id_depto="<?php echo $_SESSION[$d_s]['dpto']; ?>";
-      var usr_cargo="<?php echo $_SESSION[$d_s]['cargo']; ?>";
-      var user="<?php echo $_SESSION[$d_s]['s_username'];?>";
-      var clvuser="<?php echo $_SESSION[$d_s]['id_us'];?>";
+      var id_s=<?php echo json_encode($d_s); ?>;
+      var id_depto=<?php echo json_encode($_SESSION[$d_s]["dpto"] ?? ""); ?>;
+      var usr_cargo=<?php echo json_encode($_SESSION[$d_s]["cargo"] ?? ""); ?>;
+      var user=<?php echo json_encode($_SESSION[$d_s]["s_username"] ?? ""); ?>;
+      var clvuser=<?php echo json_encode($_SESSION[$d_s]["id_us"] ?? ""); ?>;
       
       var moduloAcceso=4;
       var seccionAcceso=3;
@@ -68,7 +92,7 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="../index.php?d_s=<?php echo $d_s?>"><i class="fa fa-lg fa-home" aria-hidden="true"></i> SIGCE</a>
+          <a class="navbar-brand" href="../index.php?d_s=<?php echo urlencode($d_s); ?>"><i class="fa fa-lg fa-home" aria-hidden="true"></i> SIGCE</a>
           <div class="menu-toggler sidebar-toggler">
             <span class="sr-only">Toggle navigation</span>
             <span class="icon-bar"></span>
@@ -110,7 +134,7 @@
               <ul class="dropdown-menu dropdown-user">
                 <li><a href="#"><i class="fa fa-gear fa-fw"></i> Configuraciones</a></li>
                 <li class="divider"></li>
-                <li><a href="../acceso/cerrar.php?d_s=<?php echo $d_s?>"><i class="fa fa-sign-out fa-fw"></i> Salir</a></li>
+                <li><a href="../acceso/cerrar.php?d_s=<?php echo urlencode($d_s); ?>"><i class="fa fa-sign-out fa-fw"></i> Salir</a></li>
               </ul>
               <!-- /.dropdown-user -->
             </li>
@@ -127,7 +151,7 @@
       <nav role="navigation" style="margin-bottom: 0; margin-top: -1px;">
         <div class="navbar-default sidebar" role="navigation">
           <div class="sidebar-nav navbar-collapse" id="sidebar-area">
-            <ul class="nav" id="sidebar"> <?php echo $_SESSION[$d_s]['links'];?> </ul>
+            <ul class="nav" id="sidebar"> <?php echo $_SESSION[$d_s]['links'] ?? ''; ?> </ul>
           </div>
         <!-- /.sidebar-collapse -->
         </div>
@@ -149,7 +173,7 @@
                       <li role="user-data" class=""><a href="#tab2success" aria-controls="changePassword" role="tab" data-toggle="tab"><span class="fa fa-list-alt"></span> Constancia de Extracción</a></li>
                       <li role="user-data" class=""><a href="#tab3success" aria-controls="changePassword" role="tab" data-toggle="tab"><span class="fa fa-list-alt"></span> Constancia de Viveros</a></li>
                       <?php
-                      if ($_SESSION[$d_s]['id_us'] == '1') {
+                      if (($_SESSION[$d_s]['id_us'] ?? '') === '1') {
                       ?>
                       <li role="user-data" class=""><a href="#tab4success" aria-controls="changePassword" role="tab" data-toggle="tab"><span class="fa fa-list-alt"></span> Constancia de Extracción de Viveros</a></li>
                   	<?php } ?>
@@ -231,7 +255,7 @@
                                                   </div>
                                                   <form class="form-horizontal" id="formmodal" action="" method="POST" name="formmodal" enctype="multipart/form-data" >
                                                     <div class="modal-body ">
-                                                      <input type="hidden" name='usr' id='usr' value='<?php echo $_SESSION[$d_s]['s_username']?>'>
+                                                      <input type="hidden" name='usr' id='usr' value='<?php echo htmlspecialchars($_SESSION[$d_s]["s_username"] ?? "", ENT_QUOTES); ?>'>
                                                       <div class=" row">
                                                         <div class="col-md-2" style="margin-left: 10px;">
                                                            <label for="formmodal">No. Paraje</label>
@@ -268,7 +292,7 @@
                                                   </div>
                                                   <form class="form-horizontal" id="formmodal" action="" method="POST" name="formmodal" enctype="multipart/form-data" >
                                                     <div class="modal-body ">
-                                                      <input type="hidden" name='usr2' id='usr2' value='<?php echo $_SESSION[$d_s]['s_username']?>'>
+                                                      <input type="hidden" name='usr2' id='usr2' value='<?php echo htmlspecialchars($_SESSION[$d_s]["s_username"] ?? "", ENT_QUOTES); ?>'>
                                                       <div class=" row">
                                                         <div class="col-md-2" style="margin-left: 10px;">
                                                            <label for="formmodal">No. Paraje</label>
@@ -365,13 +389,13 @@
         </div>
     </div>
 
-     <?php include("../includes/acceso.php");?>
+     <?php include __DIR__ . "/../includes/acceso.php"; ?>
 </body>
 </html>
-<?php 
-  }
-  else
-  {
-    header("location: http://".$svr_dir."/sigce/acceso/login.php");  
-  }
+<?php
+} else {
+    $esquema = isset($_SERVER['HTTPS']) ? 'https' : 'http';
+    header('Location: ' . $esquema . '://' . $svr_dir . '/acceso/login.php');
+    exit;
+}
 ?>

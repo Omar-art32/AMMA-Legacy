@@ -1030,6 +1030,34 @@ if(isset($_SESSION[$d_s]) && $_SESSION[$d_s]["seccion_1_2"] == "logged")
 
 
 
+      <!--Modal Agregar Marca (faltaba en la migración; requerido por entradas.js: addMarca(), nextMarca(), GuardaMarca())-->
+      <div id="dialog-form1" title="Agregar Marca" style="display:none;">
+        <form class="form-horizontal" id="formMarcas" name="formMarcas" role="form" action='' method='post'>
+          <input type="hidden" name="nc_marca" id="nc_marca" value=''/>
+          <div class="form-group">
+            <label for="formMarcas" class="col-lg-4 control-label">Letra:</label>
+            <div class="col-lg-8">
+              <input type='text' name='letra' id='letra' value='' class='form-control txt-short' readonly>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="formMarcas" class="col-lg-4 control-label">Nueva Marca:</label>
+            <div class="col-lg-8">
+              <input type='text' name='marca_new' id='marca_new' value='' class='form-control txt-upper'>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="col-lg-12" id="marcas_d" style="font-size:12px; max-height:150px; overflow-y:auto;"></div>
+          </div>
+          <div class="form-group">
+            <div class="col-lg-12 text-center">
+              <input type='button' class="btn btn-success" name='btnGuardaMarca' id='btnGuardaMarca' value='Guardar' onClick="GuardaMarca()">
+            </div>
+          </div>
+        </form>
+      </div>
+      <!--Fin Modal Agregar Marca-->
+
       <!--Modal observaciones-->
       <div class="modal fade bs-example-modal-sm" id="mdlObservaciones" tabindex="-1" role="dialog" aria-hidden="true" >
         <div class="modal-dialog modal-sm">

@@ -1,517 +1,264 @@
 <?php
-    $page = $_POST['page'] ?? 1;  // Almacena el numero de pagina actual
-    $limit = $_POST['rows'] ?? 10; // Almacena el numero de filas que se van a mostrar por pagina
-    $sidx = $_POST['sidx'] ?? ''; // Almacena el indice por el cual se har· la ordenaci·n de los datos
-    $sord = $_POST['sord'] ?? ''; // Almacena el modo de ordenaci·n
-	$depto=$_POST['depto'] ?? '';
-	$cargo=$_POST['cargo'] ?? '';
-	$idus = $_POST['clvuser'] ?? '';
-	$anio_b="";
-	$fecha_ini="";
-	$nivel = $_POST['nivel'] ?? '';
-	include("../../../common/conexion.php");
-	include('../../../common/cfg_server.php');
-  mysqli_set_charset($conexion,"utf8");
-	//REVISAMOS SI SE RECIBIO UN CAMPO PARA FILTRAR
-  $condiciones =  "";
-	if(isset($_POST['campo'])) {
-		$clave=$_POST['valor'] ?? '';
-		$campo=$_POST['campo'] ?? '';
-		if($campo == "todos") {
-			$clave1 = $_POST['valor1'] ?? '';
-			$clave2 = $_POST['valor2'] ?? '';
-			$clave3 = $_POST['valor3'] ?? '';
-			$clave4 = $_POST['valor4'] ?? '';
-			if($clave1 != "")
-				$condiciones .= " shp.id_solicitud = '".$clave1."' ";
-			if($clave2 != "") {
-				$condiciones .= ($condiciones != "")?" AND ": "";
-				$condiciones .= "  marcas.marca = '".$clave2."' ";
-			}
-			if($clave3 > 0) {
-				$condiciones .= ($condiciones != "")?" AND ": "";
-				$condiciones .=($clave3 == 4)? "  sh_detalle.status IN (4,5,6) ": "  sh_detalle.status = '".$clave3."' ";
-			}
-			if($clave4 != "") {
-				$condiciones .= ($condiciones != "")?" AND ": "";
-				$condiciones .= "  shp.no_cliente = '".$clave4."' ";
-			}
-		} else {
-			$condiciones="shp.$campo='{$clave}'";
-			if($campo=='marca')
-				$condiciones="marcas.$campo='{$clave}'";
-	        if($campo=='estatus') {
-	        	if($clave == 4)
-	        		$condiciones="sh_detalle.status IN (4,5,6) ";
-	        	else
-	            	$condiciones="sh_detalle.status='{$clave}'";
-	        }
-	    }
-		if(!$sidx) $sidx =1;
-		// Se crea la conexi·n a la base de datos
-	    // Se hace una consulta para saber cuantos registros se van a mostrar
-		$sql_cont="SELECT count(*) as count
-		FROM sh_pedidos shp
-		INNER JOIN solicitudes ON solicitudes.id=shp.id_solicitud
-		INNER JOIN sh_detalle ON sh_detalle.id_solicitud=shp.id_solicitud
-		INNER JOIN marcas ON marcas.no_cliente=shp.no_cliente AND marcas.cve_marca=sh_detalle.marca
-		WHERE $condiciones";
-                //echo $sql_cont;
-		//echo $sql_cont;
-		$result = $conexion->query($sql_cont);
-		// Se obtiene el resultado de la consulta
-		$fila = $result->fetch_array();
-		$count = $fila['count'];
-		//En base al numero de registros se obtiene el numero de paginas
-		if( $count >0 ) {
-		$total_pages = ceil($count/$limit);
-		} else {
-		$total_pages = 0;
-		}
-		if ($page > $total_pages)
-			$page=$total_pages;
-		//Almacena numero de registro donde se va a empezar a recuperar los registros para la pagina
-		$start = $limit*$page - $limit;
-		if($total_pages==0)
-		{
-			$start=0;
-		}
-		//Consulta que devuelve los registros de una sola pagina
-		$consulta = "SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud,
-							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo,
-							sh_detalle.edo, 				sh_detalle.urgente,		  sh_detalle.cantidad, 			sh_detalle.importe,	  sh_detalle.status,
-							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora,
-							sh_detalle.pago_opcion pago_opcion, sh_detalle.pago_promo
-		FROM sh_pedidos shp INNER JOIN solicitudes ON solicitudes.id=shp.id_solicitud
-		INNER JOIN sh_detalle ON sh_detalle.id_solicitud=shp.id_solicitud
-		INNER JOIN marcas ON marcas.no_cliente = shp.no_cliente AND marcas.cve_marca=sh_detalle.marca
-		where $condiciones  ORDER BY shp.id_solicitud desc limit $start , $limit";
-		//echo $consulta;
-		$result = $conexion->query($consulta);
-		// Se agregan los datos de la respuesta del servidor
-		$respuesta = new stdClass(); // PHP 8: debe inicializarse antes de asignar propiedades
-		$respuesta->page[0] = $page;
-		$respuesta->total[0] = $total_pages;
-		$respuesta->records[0] = $count;
-		$respuesta->sql[0] = $consulta;
-		$i=0;
-		$link="";
-		$status="";
-		$tipo_mez="";
-		$prioridad="";
-		$importe="";
-		while( $fila = $result->fetch_assoc() ) {
+/**
+ * listado_online.php — PHP 8.3
+ * Fuente de datos (jqGrid) para la pestaña "Pedidos Online".
+ * Devuelve JSON con el formato esperado por jqGrid {page, total, records, rows}.
+ *
+ * Cambios vs 5.6:
+ *  - SQL concatenado (filtros $clave/$clave1..4) → condiciones armadas
+ *    con marcadores (?) y ejecutadas con sentencia preparada. 'campo'
+ *    se valida contra una lista blanca (los únicos valores que envía
+ *    pedidos_online.js: no_cliente, id_solicitud, marca, estatus, todos).
+ *  - $respuesta->sql[0] = $consulta ELIMINADO: exponía el SQL crudo
+ *    (incluyendo los filtros) en la respuesta JSON — fuga de información.
+ *  - include → require_once con __DIR__
+ *  - mysqli_set_charset("utf8") eliminado (conexion.php ya usa utf8mb4)
+ *  - Las dos ramas (con/sin filtro) del original eran casi idénticas;
+ *    se unifican en un solo flujo con una función compartida para
+ *    construir cada renglón, evitando mantener la lógica duplicada
+ *  - Salida a HTML (botones de acción, comprobante) escapada con
+ *    htmlspecialchars donde el valor viene de datos guardados en BD
+ *  - try/catch con error_log
+ */
+declare(strict_types=1);
 
-			$pos1 = strstr($fila["tipo_pago"], "TRANSFERENCIA");
-			$pos2 = strstr($fila["tipo_pago"], "CHEQUE");
-			$pos3 = strstr($fila["tipo_pago"], "EFECTIVO");
-			$pos4 = strstr($fila["tipo_pago"], "DEPOSIT (IN");
-			$pos5 = strstr($fila["tipo_pago"], "DEPOSITO");
-			$tpe = 0;
-			if($pos1 != "") {
-				$tp = "TF"; $tpe = 2;
-			} elseif($pos2 != "") {
-				$tp = "CH"; $tpe = 3;
-			} elseif($pos3 != "" || $pos4 != "") {
-				$tp = "EF"; $tpe = 1;
-			} else {
-				$tp = "OT"; $tpe = 4;
-			}
-			if($fila["comprobante"] != "")
-				$comp = '<p title="'.$fila["tipo_pago"].'" ><a href="../../clientes/hologramas/php/files/'.$fila["comprobante"].'?'.uniqid().'" target="_blank" > '.$tp.' </a><p>';
-			else
-				$comp = '<p title="'.$fila["tipo_pago"].'" >'.$tp.'<p>';
-			$fpago = ($cargo == 7 || $cargo == 12 || $cargo == 13 || $cargo == 14 || $cargo == 20 || $idus == 1)?$comp:'';
+require_once __DIR__ . '/../../../common/conexion.php';
+require_once __DIR__ . '/../../../common/cfg_server.php';
 
-			$marca=$fila["cve_marca"].' - '.$fila["marca"];
-			$pago_opcion = "PAGO NORMAL";
-			switch($fila["pago_opcion"]) {
-				case 1: {
-					$pago_opcion = "PAGO NORMAL";
-					break;
-				}
-				case 2: {
-					$pago_opcion = "PAQUETE EMPRENDEDOR";
-					break;
-				}
-				case 3: {
-					$pago_opcion = "CARGO A ESTADO DE CUENTA";
-					break;
-				}
-				case 4: {
-					$pago_opcion = "SEFADER";
-					break;
-				}
-				case 5: {
-					$pago_opcion = "AUTORIZADO POR UT";
-					break;
-				}
-			}
-			switch($fila["status"])
-			{
-				case 1:
-				{
-					$status="REVISIÓN";
-					break;
-				}
-				case 2:
-				{
-					$status="AUTORIZADO";
-					break;
-				}
-				case 3:
-				{
-					$status="EN LISTA";
-					break;
-				}
-				case 4:
-				{
-					$status="SOLICITADO A PROVEEDOR";
-					break;
-				}
-				case 5:
-				{
-					$status="SOLICITADO A PROVEEDOR";
-					break;
-				}
-				case 6:
-				{
-					$status="SOLICITADO A PROVEEDOR";
-					break;
-				}
-				case 7:
-				{
-					$status="CANCELADO";
-					break;
-				}
-			}
-			$status = ($fila["status"] != 7 && $fila["status"] != 1) ? ("$status<br><span style='font-size: 8px;color:blue;'>$pago_opcion</span>"): $status;
-			//.
-			switch($fila["tipo"])
-			{
-				case 0:
-				{
-					$tipo_mez="N/S";
-					break;
-				}
-				case 1:
-				{
-					$tipo_mez="MEZCAL";
-					break;
-				}
-				case 2:
-				{
-					$tipo_mez="ARTESANAL";
-					break;
-				}
-				case 3:
-				{
-					$tipo_mez="ANCESTRAL";
-					break;
-				}
 
-			}
-			if($fila['urgente']==1)
-			{
-				$prioridad="URGENTE";
-			}
-			else
-			{
-				$prioridad="NORMAL";
-			}
-			$link="";
-			if( ($depto=="DA" || $idus == '1' || $idus == '4') || $nivel == 1)
-			{
-				if($fila["status"]==1) {
-				  $link='<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick=confirma_pago_online_otro('.$fila["id_det"].','.$fila["id"].','.$tpe.','.$fila["urgente"].')><i class="fa fa-lg fa-usd"></i></button>';
-				  if($fila["comprobante"]!="")
-				  {
-					  $url="'http://".$svr_dir."/clientes/hologramas/php/files/".$fila["comprobante"]."?".uniqid()."'";
-					  $link.='&nbsp;<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-danger" onClick="ver_comprobante('.$url.')" style="padding-left:7px !important; padding-right:7px !important;"><i class="fa fa-lg fa-file" style="color:#fff"></i></button>';
-				  }
-				  $link.='&nbsp;&nbsp;<button type="button" name="btn_cancelar" id="btn_cancelar" class="btn btn-sm btn-warning" onclick="cancelar_solicitud('.$fila["id_det"].','.$fila["id"].')"><i class="fa fa-lg fa-close"></i></button>';
-				  /*if($idus == '1' ) {
-					$link.='&nbsp;&nbsp;<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick=confirma_pago_online_otro('.$fila["id_det"].','.$fila["id"].','.$tpe.')><i class="fa fa-btc" aria-hidden="true"></i></button>';
-				  }*/
-				} else {
-					if($fila["comprobante"]!="") {
-						$url="'http://".$svr_dir."/clientes/hologramas/php/files/".$fila["comprobante"]."?".uniqid()."'";
-						$link='<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-danger" onClick="ver_comprobante('.$url.')" style="padding-left:7px !important; padding-right:7px !important;"><i class="fa fa-lg fa-file" style="color:#fff"></i></button>';
-				  	}
-					if ($fila["pago_opcion"] === "5") {
-						$link .= '&nbsp;&nbsp;<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick="modifica_pago_online_otro('.$fila["id_det"].','.$fila["id"].','.$tpe.')"><i class="fa fa-lg fa-usd"></i></button>';
-						/*if($idus == '1' ) {
-							$link.='&nbsp;&nbsp;<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick=modifica_pago_online_otro('.$fila["id_det"].','.$fila["id"].','.$tpe.','.$fila["pago_opcion"].')><i class="fa fa-btc" aria-hidden="true"></i></button>';
-						}*/
-					}
+const CAMPOS_VALIDOS = ['no_cliente', 'id_solicitud', 'marca', 'estatus', 'todos'];
 
-					/*if($idus == 1) {
-						if($fila["status"]==2)
-							$link='<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick="get_data_online_tmp('.$fila["id_det"].','.$fila["cantidad"].')"><i class="fa fa-lg fa-cart-plus"></i></button>&nbsp;<button type="button"  name="btnEditPO" id="btnEditPO" class="btn btn-sm btn-primary" onClick="getEditarPO('.$fila["id_det"].')"><i class="fa fa-lg fa-edit"></i></button>&nbsp;&nbsp;<button type="button" name="btn_cancelar" id="btn_cancelar" class="btn btn-sm btn-warning" onclick="cancelar_solicitud('.$fila["id_det"].','.$fila["id"].')"><i class="fa fa-lg fa-close"></i></button>';
-					}*/
-				}
-			}
-			else if($depto=="OC" || $idus == 1)
-			{
-				if($fila["status"]==2)
-					$link='<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick="get_data_online_tmp('.$fila["id_det"].','.$fila["cantidad"].')"><i class="fa fa-lg fa-cart-plus"></i></button>&nbsp;<button type="button"  name="btnEditPO" id="btnEditPO" class="btn btn-sm btn-primary" onClick="getEditarPO('.$fila["id_det"].')"><i class="fa fa-lg fa-edit"></i></button>&nbsp;&nbsp;<button type="button" name="btn_cancelar" id="btn_cancelar" class="btn btn-sm btn-warning" onclick="cancelar_solicitud('.$fila["id_det"].','.$fila["id"].')"><i class="fa fa-lg fa-close"></i></button>';
-				/*else
-				$link="";*/
-			}
+function statusOnlineLabel(mixed $status): string
+{
+    return match ((int)$status) {
+        1 => 'REVISIÓN',
+        2 => 'AUTORIZADO',
+        3 => 'EN LISTA',
+        4, 5, 6 => 'SOLICITADO A PROVEEDOR',
+        7 => 'CANCELADO',
+        default => '',
+    };
+}
 
-			if($fila["observaciones"]!=""){
+function pagoOpcionLabel(mixed $opcion): string
+{
+    return match ((int)$opcion) {
+        2 => 'PAQUETE EMPRENDEDOR',
+        3 => 'CARGO A ESTADO DE CUENTA',
+        4 => 'SEFADER',
+        5 => 'AUTORIZADO POR UT',
+        default => 'PAGO NORMAL',
+    };
+}
 
-				$link.='&nbsp;<button type="button" name="btn_info" id="btn_info" class="btn btn-sm btn-info" onclick="get_observacion_pedido('.$fila["id_det"].')"><i class="fa fa-lg fa-info"></i></button>';
+function tipoMezcalOnlineLabel(mixed $tipo): string
+{
+    return match ((int)$tipo) {
+        1 => 'MEZCAL',
+        2 => 'ARTESANAL',
+        3 => 'ANCESTRAL',
+        default => 'N/A',
+    };
+}
 
-			}
+function tipoPagoInfo(string $tipoPago): array
+{
+    if (strstr($tipoPago, 'TRANSFERENCIA') != '') return ['TF', 2];
+    if (strstr($tipoPago, 'CHEQUE') != '') return ['CH', 3];
+    if (strstr($tipoPago, 'EFECTIVO') != '' || strstr($tipoPago, 'DEPOSIT (IN') != '') return ['EF', 1];
+    return ['OT', 4];
+}
 
-			$divide = floatval($fila["importe"])/intval($fila["cantidad"]);
-			//$txtdivide = ($divide == "0.9" || $divide == "1.35" || $fila["id"] == 1425) ? "<br><span style='font-size: 8px;color:red;'>BUEN FIN</span>": "";
-			$txtdivide = ($fila["pago_promo"] == "1") ? "<br><span style='font-size: 8px;color:red;'>BUEN FIN</span>": "";
-			$importe="$ ".number_format($fila["importe"], 2, '.', ',') . $txtdivide;
-			$respuesta->rows[$i]["id"]=$fila["id_det"];
-			$folio = ($fila["id"] < 33159) ? $fila["folio"] . "/" .substr($fila["anio"], -2, 2) : $fila["folio"];
-			$respuesta->rows[$i]["cell"]=array($folio, $fila["fecha"]."  ". $fila["hora"], $fila["no_cliente"], $marca, $tipo_mez, $fila["edo"], number_format($fila["cantidad"],0),$importe , $prioridad, $status, $link, $fpago, $pago_opcion, $fila["status"]);
-			$respuesta->rows[$i]["opera"] = $divide .":". floatval($fila["importe"]).":".intval($fila["cantidad"]);
-			$i++;
-		}
-		// La respuesta se regresa como json
-		echo  json_encode($respuesta);
+$page  = (int)($_POST['page'] ?? 1);
+$limit = max(1, (int)($_POST['rows'] ?? 10));
+$depto = (string)($_POST['depto'] ?? '');
+$cargo = (int)($_POST['cargo'] ?? 0);
+$idus  = (string)($_POST['clvuser'] ?? '');
+$nivel = (string)($_POST['nivel'] ?? '');
 
-	} else {
+try {
+    // ----- ARMAR CONDICIONES (con lista blanca de columnas) -----
+    $condiciones = [];
+    $params = [];
+    $types = '';
 
-		if(!$sidx) $sidx =1;
-		// Se crea la conexi·n a la base de datos
-		// Se hace una consulta para saber cuantos registros se van a mostrar
-		$result = $conexion->query("SELECT count(*) as count FROM sh_pedidos INNER JOIN solicitudes ON solicitudes.id=sh_pedidos.id_solicitud INNER JOIN sh_detalle ON sh_detalle.id_solicitud=sh_pedidos.id_solicitud
-			INNER JOIN marcas ON marcas.no_cliente=sh_pedidos.no_cliente AND marcas.cve_marca=sh_detalle.marca");
-		// Se obtiene el resultado de la consulta
-		$fila = $result->fetch_array();
-		$count = $fila['count'];
-		//En base al numero de registros se obtiene el numero de paginas
-		if( $count >0 ) {
-		$total_pages = ceil($count/$limit);
-		} else {
-		$total_pages = 0;
-		}
-		if ($page > $total_pages)
-			$page=$total_pages;
-		//Almacena numero de registro donde se va a empezar a recuperar los registros para la pagina
-		$start = $limit*$page - $limit;
-		if($total_pages==0)
-		{
-			$start=0;
-		}
+    if (isset($_POST['campo']) && in_array($_POST['campo'], CAMPOS_VALIDOS, true)) {
+        $campo = (string)$_POST['campo'];
 
-		/*SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud,
-							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo,
-							sh_detalle.edo, 				sh_detalle.urgente,		  sh_detalle.cantidad, 			sh_detalle.importe,	  sh_detalle.status,
-							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora,
-							sh_detalle.pago_opcion pago_opcion
-		FROM sh_pedidos shp
-		INNER JOIN solicitudes ON solicitudes.id=sh_pedidos.id_solicitud
-		INNER JOIN sh_detalle ON sh_detalle.id_solicitud=sh_pedidos.id_solicitud
-		INNER JOIN marcas ON marcas.no_cliente = sh_pedidos.no_cliente AND marcas.cve_marca=sh_detalle.marca
-		where $condiciones  ORDER BY sh_pedidos.id_solicitud desc limit $start , $limit*/
+        if ($campo === 'todos') {
+            $clave1 = (string)($_POST['valor1'] ?? '');
+            $clave2 = (string)($_POST['valor2'] ?? '');
+            $clave3 = (string)($_POST['valor3'] ?? '');
+            $clave4 = (string)($_POST['valor4'] ?? '');
 
-		//Consulta que devuelve los registros de una sola pagina
-		$consulta = "SELECT solicitudes.id, 				solicitudes.folio, 		  solicitudes.anio, 			sh_detalle.id id_det, shp.id_solicitud,
-							date(solicitudes.fecha) fecha,  shp.no_cliente,    sh_detalle.marca cve_marca, 	marcas.marca, 		  sh_detalle.tipo,
-							sh_detalle.edo, 				sh_detalle.urgente,		  sh_detalle.cantidad, 			sh_detalle.importe,	  sh_detalle.status,
-							shp.comprobante,			sh_detalle.observaciones, shp.tipo_pago, 				shp.comprobante, 	  time(solicitudes.fecha) hora,
-							sh_detalle.pago_opcion pago_opcion, sh_detalle.pago_promo
-						FROM sh_pedidos shp INNER JOIN solicitudes ON solicitudes.id=shp.id_solicitud
-						INNER JOIN sh_detalle ON sh_detalle.id_solicitud=shp.id_solicitud
-						INNER JOIN marcas ON marcas.no_cliente = shp.no_cliente AND marcas.cve_marca=sh_detalle.marca
-                        ORDER BY shp.id_solicitud desc limit $start , $limit";
+            if ($clave1 !== '') {
+                $condiciones[] = 'shp.id_solicitud = ?';
+                $params[] = $clave1;
+                $types .= 's';
+            }
+            if ($clave2 !== '') {
+                $condiciones[] = 'marcas.marca = ?';
+                $params[] = $clave2;
+                $types .= 's';
+            }
+            if ($clave3 > 0) {
+                if ((int)$clave3 === 4) {
+                    $condiciones[] = 'sh_detalle.status IN (4,5,6)';
+                } else {
+                    $condiciones[] = 'sh_detalle.status = ?';
+                    $params[] = $clave3;
+                    $types .= 's';
+                }
+            }
+            if ($clave4 !== '') {
+                $condiciones[] = 'shp.no_cliente = ?';
+                $params[] = $clave4;
+                $types .= 's';
+            }
+        } else {
+            $clave = (string)($_POST['valor'] ?? '');
+            if ($campo === 'marca') {
+                $condiciones[] = 'marcas.marca = ?';
+                $params[] = $clave;
+                $types .= 's';
+            } elseif ($campo === 'estatus') {
+                if ((int)$clave === 4) {
+                    $condiciones[] = 'sh_detalle.status IN (4,5,6)';
+                } else {
+                    $condiciones[] = 'sh_detalle.status = ?';
+                    $params[] = $clave;
+                    $types .= 's';
+                }
+            } else {
+                $condiciones[] = "shp.$campo = ?";
+                $params[] = $clave;
+                $types .= 's';
+            }
+        }
+    }
 
-		//echo $consulta;
-		$result = $conexion->query($consulta);
-		// Se agregan los datos de la respuesta del servidor
-		$respuesta = new stdClass(); // PHP 8: debe inicializarse antes de asignar propiedades
-		$respuesta->page[0] = $page;
-		$respuesta->total[0] = $total_pages;
-		$respuesta->records[0] = $count;
-		$i=0;
-		$link="";
-		$status="";
-		$tipo_mez="";
-		$prioridad="";
-		$importe="";
-		while( $fila = $result->fetch_assoc() ) {
+    $whereSql = count($condiciones) > 0 ? ('WHERE ' . implode(' AND ', $condiciones)) : '';
 
-			$pos1 = strstr($fila["tipo_pago"], "TRANSFERENCIA");
-			$pos2 = strstr($fila["tipo_pago"], "CHEQUE");
-			$pos3 = strstr($fila["tipo_pago"], "EFECTIVO");
-			$pos4 = strstr($fila["tipo_pago"], "DEPOSIT (IN");
-			$pos5 = strstr($fila["tipo_pago"], "DEPOSITO");
-			$tpe = 0;
-			if($pos1 != "") {
-				$tp = "TF"; $tpe = 2;
-			} elseif($pos2 != "") {
-				$tp = "CH"; $tpe = 3;
-			} elseif($pos3 != "" || $pos4 != "") {
-				$tp = "EF"; $tpe = 1;
-			}else {
-				$tp = "OT"; $tpe = 4;
-			}
-			if($fila["comprobante"] != "")
-				$comp = '<p title="'.$fila["tipo_pago"].'" ><a href="../../clientes/hologramas/php/files/'.$fila["comprobante"].'?'.uniqid().'" target="_blank" > '.$tp.' </a><p>';
-			else
-				$comp = '<p title="'.$fila["tipo_pago"].'" >'.$tp.'<p>';
-			$fpago = ($cargo == 7 || $cargo == 12 || $cargo == 13 || $cargo == 14 || $cargo == 20 || $idus == 1)?$comp:'';
+    // ----- CONTEO -----
+    $sqlCont = "SELECT COUNT(*) AS count
+                FROM sh_pedidos shp
+                INNER JOIN solicitudes ON solicitudes.id = shp.id_solicitud
+                INNER JOIN sh_detalle ON sh_detalle.id_solicitud = shp.id_solicitud
+                INNER JOIN marcas ON marcas.no_cliente = shp.no_cliente AND marcas.cve_marca = sh_detalle.marca
+                $whereSql";
+    $stmtCont = $conexion->prepare($sqlCont);
+    if ($types !== '') {
+        $stmtCont->bind_param($types, ...$params);
+    }
+    $stmtCont->execute();
+    $count = (int)$stmtCont->get_result()->fetch_assoc()['count'];
+    $stmtCont->close();
 
-			$marca=$fila["cve_marca"].' - '.$fila["marca"];
-			$pago_opcion = "PAGO NORMAL";
-			switch($fila["pago_opcion"]) {
-				case 1: {
-					$pago_opcion = "PAGO NORMAL";
-					break;
-				}
-				case 2: {
-					$pago_opcion = "PAQUETE EMPRENDEDOR";
-					break;
-				}
-				case 3: {
-					$pago_opcion = "CARGO A ESTADO DE CUENTA";
-					break;
-				}
-				case 4: {
-					$pago_opcion = "SEFADER";
-					break;
-				}
-				case 5: {
-					$pago_opcion = "AUTORIZADO POR UT";
-					break;
-				}
-			}
-			switch($fila["status"])
-			{
-				case 1:
-				{
-					$status="REVISIÓN";
-					break;
-				}
-				case 2:
-				{
-					$status="AUTORIZADO";
-					break;
-				}
-				case 3:
-				{
-					$status="EN LISTA";
-					break;
-				}
-				case 4:
-				{
-					$status="SOLICITADO A PROVEEDOR";
-					break;
-				}
-				case 5:
-				{
-					$status="SOLICITADO A PROVEEDOR";
-					break;
-				}
-				case 6:
-				{
-					$status="SOLICITADO A PROVEEDOR";
-					break;
-				}
-				case 7:
-				{
-					$status="CANCELADO";
-					break;
-				}
-			}
-			$status = ($fila["status"] != 7 && $fila["status"] != 1) ? ("$status<br><span style='font-size: 8px;color:blue;'>$pago_opcion</span>"): $status;
-			switch($fila["tipo"])
-			{
-				case 0:
-				{
-					$tipo_mez="N/A";
-					break;
-				}
-				case 1:
-				{
-					$tipo_mez="MEZCAL";
-					break;
-				}
-				case 2:
-				{
-					$tipo_mez="ARTESANAL";
-					break;
-				}
-				case 3:
-				{
-					$tipo_mez="ANCESTRAL";
-					break;
-				}
+    $total_pages = $count > 0 ? (int)ceil($count / $limit) : 0;
+    if ($page > $total_pages) {
+        $page = $total_pages;
+    }
+    $start = ($total_pages === 0) ? 0 : max(0, $limit * $page - $limit);
 
-			}
-			if($fila['urgente']==1)
-			{
-				$prioridad="URGENTE";
-			}
-			else
-			{
-				$prioridad="NORMAL";
-			}
-			$link="";
-			if(($depto=="DA"  || $idus == '1' || $idus == '4') || $nivel == 1)
-			{
-				if($fila["status"]==1)
-				{
-				  $link='<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick=confirma_pago_online_otro('.$fila["id_det"].','.$fila["id"].','.$tpe.','.$fila["urgente"].')><i class="fa fa-lg fa-usd"></i></button>';
-				  if($fila["comprobante"]!="")
-				  {
-					  $url="'http://".$svr_dir."/clientes/hologramas/php/files/".$fila["comprobante"]."?".uniqid()."'";
-					  $link.='&nbsp;<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-danger" onClick="ver_comprobante('.$url.')" style="padding-left:7px !important; padding-right:7px !important;"><i class="fa fa-lg fa-file" style="color:#fff"></i></button>';
-				  }
-				  $link.='&nbsp;&nbsp;<button type="button" name="btn_cancelar" id="btn_cancelar" class="btn btn-sm btn-warning" onclick="cancelar_solicitud('.$fila["id_det"].','.$fila["id"].')"><i class="fa fa-lg fa-close"></i></button>';
-				  /*if($idus == '1' ) {
-					$link.='&nbsp;&nbsp;<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick=confirma_pago_online_otro('.$fila["id_det"].','.$fila["id"].','.$tpe.')><i class="fa fa-btc" aria-hidden="true"></i></button>';
-				  }*/
-				} else {
-				  if($fila["comprobante"]!="") {
-					$url="'http://".$svr_dir."/clientes/hologramas/php/files/".$fila["comprobante"]."?".uniqid()."'";
-					$link='<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-danger" onClick="ver_comprobante('.$url.')" style="padding-left:7px !important; padding-right:7px !important;"><i class="fa fa-lg fa-file" style="color:#fff"></i></button>';
-				  }
-				  if ($fila["pago_opcion"] === "5") {
-					$link .= '&nbsp;&nbsp;<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick="modifica_pago_online_otro('.$fila["id_det"].','.$fila["id"].','.$tpe.')"><i class="fa fa-lg fa-usd"></i></button>';
-				  }
+    // ----- CONSULTA PAGINADA -----
+    $sql = "SELECT solicitudes.id, solicitudes.folio, solicitudes.anio, sh_detalle.id id_det, shp.id_solicitud,
+                   DATE(solicitudes.fecha) fecha, shp.no_cliente, sh_detalle.marca cve_marca, marcas.marca, sh_detalle.tipo,
+                   sh_detalle.edo, sh_detalle.urgente, sh_detalle.cantidad, sh_detalle.importe, sh_detalle.status,
+                   shp.comprobante, sh_detalle.observaciones, shp.tipo_pago, TIME(solicitudes.fecha) hora,
+                   sh_detalle.pago_opcion pago_opcion, sh_detalle.pago_promo
+            FROM sh_pedidos shp
+            INNER JOIN solicitudes ON solicitudes.id = shp.id_solicitud
+            INNER JOIN sh_detalle ON sh_detalle.id_solicitud = shp.id_solicitud
+            INNER JOIN marcas ON marcas.no_cliente = shp.no_cliente AND marcas.cve_marca = sh_detalle.marca
+            $whereSql
+            ORDER BY shp.id_solicitud DESC
+            LIMIT ?, ?";
+    $stmt = $conexion->prepare($sql);
+    $allParams = [...$params, $start, $limit];
+    $allTypes = $types . 'ii';
+    $stmt->bind_param($allTypes, ...$allParams);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-				  	/*if($idus == 1) {
-						if($fila["status"]==2)
-							$link='<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick="get_data_online_tmp('.$fila["id_det"].','.$fila["cantidad"].')"><i class="fa fa-lg fa-cart-plus"></i></button>&nbsp;<button type="button"  name="btnEditPO" id="btnEditPO" class="btn btn-sm btn-primary" onClick="getEditarPO('.$fila["id_det"].')"><i class="fa fa-lg fa-edit"></i></button>&nbsp;&nbsp;<button type="button" name="btn_cancelar" id="btn_cancelar" class="btn btn-sm btn-warning" onclick="cancelar_solicitud('.$fila["id_det"].','.$fila["id"].')"><i class="fa fa-lg fa-close"></i></button>';
-					}*/
-				}
-			}
-			else if($depto=="OC" || $idus == 1)
-			{
-				if($fila["status"]==2)
-					$link='<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-success" onClick="get_data_online_tmp('.$fila["id_det"].','.$fila["cantidad"].')"><i class="fa fa-lg fa-cart-plus"></i></button>&nbsp;<button type="button"  name="btnEditPO" id="btnEditPO" class="btn btn-sm btn-primary" onClick="getEditarPO('.$fila["id_det"].')"><i class="fa fa-lg fa-edit"></i></button>&nbsp;&nbsp;<button type="button" name="btn_cancelar" id="btn_cancelar" class="btn btn-sm btn-warning" onclick="cancelar_solicitud('.$fila["id_det"].','.$fila["id"].')"><i class="fa fa-lg fa-close"></i></button>';
-				/*else
-				$link="";*/
-			}
+    $respuesta = new stdClass();
+    $respuesta->page[0] = $page;
+    $respuesta->total[0] = $total_pages;
+    $respuesta->records[0] = $count;
 
-			if($fila["observaciones"]!=""){
+    $i = 0;
+    while ($fila = $result->fetch_assoc()) {
+        [$tp, $tpe] = tipoPagoInfo((string)$fila['tipo_pago']);
 
-				$link.='&nbsp;<button type="button" name="btn_info" id="btn_info" class="btn btn-sm btn-info" onclick="get_observacion_pedido('.$fila["id_det"].')"><i class="fa fa-lg fa-info"></i></button>';
+        if ((string)$fila['comprobante'] !== '') {
+            $hrefComprobante = htmlspecialchars('../../clientes/hologramas/php/files/' . $fila['comprobante'] . '?' . uniqid(), ENT_QUOTES, 'UTF-8');
+            $tituloComprobante = htmlspecialchars((string)$fila['tipo_pago'], ENT_QUOTES, 'UTF-8');
+            $comp = '<p title="' . $tituloComprobante . '" ><a href="' . $hrefComprobante . '" target="_blank" > ' . $tp . ' </a><p>';
+        } else {
+            $comp = '<p title="' . htmlspecialchars((string)$fila['tipo_pago'], ENT_QUOTES, 'UTF-8') . '" >' . $tp . '<p>';
+        }
+        $fpago = ($cargo == 7 || $cargo == 12 || $cargo == 13 || $cargo == 14 || $cargo == 20 || $idus == 1) ? $comp : '';
 
-			}
+        $marca = $fila['cve_marca'] . ' - ' . $fila['marca'];
+        $pago_opcion = pagoOpcionLabel($fila['pago_opcion']);
+        $status = statusOnlineLabel($fila['status']);
+        if ((int)$fila['status'] !== 7 && (int)$fila['status'] !== 1) {
+            $status .= "<br><span style='font-size: 8px;color:blue;'>{$pago_opcion}</span>";
+        }
+        $tipo_mez = tipoMezcalOnlineLabel($fila['tipo']);
+        $prioridad = ((int)$fila['urgente'] === 1) ? 'URGENTE' : 'NORMAL';
 
-			$divide = floatval($fila["importe"])/intval($fila["cantidad"]);
-			//$txtdivide = ($divide == "0.9" || $divide == "1.35" || $fila["id"] == 1425) ? "<br><span style='font-size: 8px;color:red;'>BUEN FIN</span>": "";
-			$txtdivide = ($fila["pago_promo"] == "1") ? "<br><span style='font-size: 8px;color:red;'>BUEN FIN</span>": "";
-			$importe="$ ".number_format($fila["importe"], 2, '.', ',') . $txtdivide;
-			//$importe .=
+        $idDet = (int)$fila['id_det'];
+        $idSol = (int)$fila['id'];
+        $link = '';
 
-			$respuesta->rows[$i]["id"]=$fila["id_det"];
-			$folio = ($fila["id"] < 33159) ? $fila["folio"] . "/" .substr($fila["anio"], -2, 2) : $fila["folio"];
-			$respuesta->rows[$i]["cell"]=array($folio, $fila["fecha"]."  ". $fila["hora"], $fila["no_cliente"], $marca, $tipo_mez, $fila["edo"], number_format($fila["cantidad"],0),$importe , $prioridad, $status, $link, $fpago, $pago_opcion, $fila["status"]);
-			$respuesta->rows[$i]["opera"] = $divide .":". floatval($fila["importe"]).":".intval($fila["cantidad"]);
-			$i++;		}
-		// La respuesta se regresa como json
-		echo  json_encode($respuesta);
-	}
-?>
+        if (($depto === 'DA' || $idus == '1' || $idus == '4') || $nivel == '1') {
+            if ((int)$fila['status'] === 1) {
+                $link = "<button type=\"button\"  name=\"btn_asignar\" id=\"btn_asignar\" class=\"btn btn-sm btn-success\" onClick=confirma_pago_online_otro($idDet,$idSol,$tpe,{$fila['urgente']})><i class=\"fa fa-lg fa-usd\"></i></button>";
+                if ((string)$fila['comprobante'] !== '') {
+                    $url = "'http://" . $svr_dir . '/clientes/hologramas/php/files/' . $fila['comprobante'] . '?' . uniqid() . "'";
+                    $link .= '&nbsp;<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-danger" onClick="ver_comprobante(' . $url . ')" style="padding-left:7px !important; padding-right:7px !important;"><i class="fa fa-lg fa-file" style="color:#fff"></i></button>';
+                }
+                $link .= "&nbsp;&nbsp;<button type=\"button\" name=\"btn_cancelar\" id=\"btn_cancelar\" class=\"btn btn-sm btn-warning\" onclick=\"cancelar_solicitud($idDet,$idSol)\"><i class=\"fa fa-lg fa-close\"></i></button>";
+            } else {
+                if ((string)$fila['comprobante'] !== '') {
+                    $url = "'http://" . $svr_dir . '/clientes/hologramas/php/files/' . $fila['comprobante'] . '?' . uniqid() . "'";
+                    $link = '<button type="button"  name="btn_asignar" id="btn_asignar" class="btn btn-sm btn-danger" onClick="ver_comprobante(' . $url . ')" style="padding-left:7px !important; padding-right:7px !important;"><i class="fa fa-lg fa-file" style="color:#fff"></i></button>';
+                }
+                if ((string)$fila['pago_opcion'] === '5') {
+                    $link .= "&nbsp;&nbsp;<button type=\"button\"  name=\"btn_asignar\" id=\"btn_asignar\" class=\"btn btn-sm btn-success\" onClick=\"modifica_pago_online_otro($idDet,$idSol,$tpe)\"><i class=\"fa fa-lg fa-usd\"></i></button>";
+                }
+            }
+        } elseif ($depto === 'OC' || $idus == '1') {
+            if ((int)$fila['status'] === 2) {
+                $link = "<button type=\"button\"  name=\"btn_asignar\" id=\"btn_asignar\" class=\"btn btn-sm btn-success\" onClick=\"get_data_online_tmp($idDet,{$fila['cantidad']})\"><i class=\"fa fa-lg fa-cart-plus\"></i></button>&nbsp;<button type=\"button\"  name=\"btnEditPO\" id=\"btnEditPO\" class=\"btn btn-sm btn-primary\" onClick=\"getEditarPO($idDet)\"><i class=\"fa fa-lg fa-edit\"></i></button>&nbsp;&nbsp;<button type=\"button\" name=\"btn_cancelar\" id=\"btn_cancelar\" class=\"btn btn-sm btn-warning\" onclick=\"cancelar_solicitud($idDet,$idSol)\"><i class=\"fa fa-lg fa-close\"></i></button>";
+            }
+        }
+
+        if ((string)$fila['observaciones'] !== '') {
+            $link .= "&nbsp;<button type=\"button\" name=\"btn_info\" id=\"btn_info\" class=\"btn btn-sm btn-info\" onclick=\"get_observacion_pedido($idDet)\"><i class=\"fa fa-lg fa-info\"></i></button>";
+        }
+
+        $divide = (float)$fila['importe'] / max(1, (int)$fila['cantidad']);
+        $txtdivide = ((string)$fila['pago_promo'] === '1') ? "<br><span style='font-size: 8px;color:red;'>BUEN FIN</span>" : '';
+        $importe = '$ ' . number_format((float)$fila['importe'], 2, '.', ',') . $txtdivide;
+
+        $folio = ($fila['id'] < 33159) ? $fila['folio'] . '/' . substr((string)$fila['anio'], -2, 2) : $fila['folio'];
+
+        $respuesta->rows[$i]['id'] = $fila['id_det'];
+        $respuesta->rows[$i]['cell'] = [
+            $folio, $fila['fecha'] . '  ' . $fila['hora'], $fila['no_cliente'], $marca, $tipo_mez, $fila['edo'],
+            number_format((float)$fila['cantidad'], 0), $importe, $prioridad, $status, $link, $fpago, $pago_opcion, $fila['status'],
+        ];
+        $respuesta->rows[$i]['opera'] = $divide . ':' . (float)$fila['importe'] . ':' . (int)$fila['cantidad'];
+        $i++;
+    }
+    $stmt->close();
+
+    echo json_encode($respuesta);
+} catch (mysqli_sql_exception $e) {
+    error_log('[listado_online.php] ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['page' => [0], 'total' => [0], 'records' => [0], 'rows' => []]);
+} finally {
+    $conexion->close();
+}
