@@ -24,7 +24,9 @@ function suggestClientes(){
     include("../../common/conexion.php");
     $conexion->set_charset("utf8");
     $return_arr = array();
-    $busca      = $_GET['term'];
+    // [CAMBIO OBLIGATORIO PHP 8] $_GET['term'] sin verificar generaba
+    // Warning: Undefined array key si el parámetro no llegaba en la URL.
+    $busca      = $_GET['term'] ?? '';
 
     // echo "string";
 
@@ -42,8 +44,11 @@ function suggestClientes(){
     while ($sql->fetch()) {
       $row_array['id']                  = $id;
       $row_array['value']              = $id;
-      $row_array['nombre']              = $nombre;
-      $row_array['asociado']            = $asociado;
+      // [CAMBIO — acentos] Los datos de "clientes" están guardados en ISO-8859-1;
+      // se convierten a UTF-8 para que se muestren bien los acentos/eñes,
+      // mismo fix aplicado en el módulo de hologramas.
+      $row_array['nombre']              = mb_convert_encoding($nombre ?? '', 'UTF-8', 'ISO-8859-1');
+      $row_array['asociado']            = mb_convert_encoding($asociado ?? '', 'UTF-8', 'ISO-8859-1');
       $row_array['rfc']                 = $rfc;
       $row_array['tipo_persona']        = $tipo_persona;
       $row_array['magueyero']           = $magueyero;
@@ -66,16 +71,22 @@ function listadoPredios(){
   try {
     include('../../common/conexion.php');
 	  $conexion->set_charset("utf8");
-    $limit        = $_GET['limit'];
-    $offset       = $_GET['offset'];
-    $WHERE    = ($_GET['no_control'] != "") ? " WHERE p.id_cliente = '".$_GET['no_control']."' ": "";
-    if($_GET['texto'] !== "") {
-      $condTexto = ($_GET['texto'] != "") ? " ( p.paraje LIKE '%".$_GET['texto']."%' || p.usufruto LIKE '%".$_GET['texto']."%' || p.nombrep LIKE '%".$_GET['texto']."%' 
-                                                || p.rcampo LIKE '%".$_GET['texto']."%' || l.localidad LIKE '%".$_GET['texto']."%' || mun.nombre LIKE '%".$_GET['texto']."%' 
-                                                || es.nombre LIKE '%".$_GET['texto']."%' || p.id_paraje LIKE '%".$_GET['texto']."%' )": "";
+    // [CAMBIO OBLIGATORIO PHP 8] Todas las lecturas de $_GET de este bloque
+    // accedían directo a la clave sin verificar su existencia.
+    $limit        = $_GET['limit'] ?? 10;
+    $offset       = $_GET['offset'] ?? 0;
+    $no_control   = $_GET['no_control'] ?? '';
+    $texto        = $_GET['texto'] ?? '';
+    $tipo_registro = $_GET['tipo_registro'] ?? '';
+    $atributo     = $_GET['atributo'] ?? '';
+
+    $WHERE    = ($no_control != "") ? " WHERE p.id_cliente = '".$no_control."' ": "";
+    if($texto !== "") {
+      $condTexto = " ( p.paraje LIKE '%".$texto."%' || p.usufruto LIKE '%".$texto."%' || p.nombrep LIKE '%".$texto."%' 
+                                                || p.rcampo LIKE '%".$texto."%' || l.localidad LIKE '%".$texto."%' || mun.nombre LIKE '%".$texto."%' 
+                                                || es.nombre LIKE '%".$texto."%' || p.id_paraje LIKE '%".$texto."%' )";
       $WHERE    .= (($WHERE !== "") ? " AND  ": " WHERE ") . $condTexto;
     }
-    $tipo_registro = $_GET['tipo_registro'];
     if($tipo_registro !== ""){
       $cond_tipo_registro = "";
       if($tipo_registro === '1'){
@@ -89,7 +100,6 @@ function listadoPredios(){
       $WHERE .= (($WHERE !== "") ? " AND ": " WHERE ") . $cond_tipo_registro;
     }
     
-    $atributo = $_GET['atributo'];
     $condAtt = ($atributo !== "") ? " WHERE atributo_id IN ($atributo) " : "";
     $leftInner = ($condAtt !== "") ? " INNER ": " LEFT ";
     $joinAtt = " $leftInner JOIN (
@@ -99,15 +109,6 @@ function listadoPredios(){
     $array  = array();
     $count  = 0;
 
-    /*$sql = $conexion->prepare("SELECT COUNT(id_paraje) FROM paraje");
-    if (!$sql) throw new Exception(json_encode(array("codigo" => 1,"ref" => "ERR:EMI01","msg" => $conexion->error)));
-    if (!$sql->execute()) throw new Exception(json_encode(array("codigo" => 1,"ref" => "ERR:EMI02","msg" => $conexion->error)));
-    $sql->store_result();
-    $sql->bind_result($numRegistros);
-    $sql->fetch();
-    $sql->close();
-
-    setlocale(LC_MONETARY, 'en_US');*/
     $sql = $conexion->prepare("SELECT p.id_paraje,  p.id_cliente, p.paraje,   p.lat,    p.lng, 
                                       p.tenencia,   p.usufruto,   p.nombrep,  p.rcampo, p.maguey_con_registro,
                                       p.id,         c.nombre,     l.localidad,mun.nombre,   DATE(p.fecharegistro) p_fecharegistro, 
@@ -137,7 +138,6 @@ function listadoPredios(){
                                 LIMIT $limit OFFSET  $offset;");
     
     if (!$sql) throw new Exception(json_encode(array("codigo" => 1,"ref" => "ERR:EMI03","msg" => $conexion->error)));
-    //$sql->bind_param("s",$inCliente);
     if (!$sql->execute()) throw new Exception(json_encode(array("codigo" => 1,"ref" => "ERR:EMI04","msg" => $conexion->error)));
     $sql->store_result();
     $sql->bind_result($id_paraje,  $id_cliente,     $paraje,   $lat,    $lng, 
@@ -149,20 +149,22 @@ function listadoPredios(){
       $array[$count]["id"]             = $id;
       $array[$count]["id_paraje"]      = $id_paraje;
       $array[$count]["id_cliente"]     = $id_cliente;
-      $array[$count]["nombre_cliente"] = $nombre_cliente;
-      $array[$count]["paraje"]         = $paraje;
+      // [CAMBIO — acentos] Conversión de ISO-8859-1 a UTF-8 en los campos de texto
+      // que pueden contener acentos/eñes.
+      $array[$count]["nombre_cliente"] = mb_convert_encoding($nombre_cliente ?? '', 'UTF-8', 'ISO-8859-1');
+      $array[$count]["paraje"]         = mb_convert_encoding($paraje ?? '', 'UTF-8', 'ISO-8859-1');
       $array[$count]["lat"]            = $lat;
       $array[$count]["lng"]            = $lng;
       $array[$count]["tenencia"]       = $tenencia;
-      $array[$count]["usufruto"]       = $usufruto;
-      $array[$count]["nombrep"]        = $nombrep;
-      $array[$count]["rcampo"]         = $rcampo;
+      $array[$count]["usufruto"]       = mb_convert_encoding($usufruto ?? '', 'UTF-8', 'ISO-8859-1');
+      $array[$count]["nombrep"]        = mb_convert_encoding($nombrep ?? '', 'UTF-8', 'ISO-8859-1');
+      $array[$count]["rcampo"]         = mb_convert_encoding($rcampo ?? '', 'UTF-8', 'ISO-8859-1');
       $array[$count]["superficie"]     = $superficie;
-      $array[$count]["localidad"]      = $localidad;
-      $array[$count]["municipio"]      = $municipio;
-      $array[$count]["estado"]         = $estado;
+      $array[$count]["localidad"]      = mb_convert_encoding($localidad ?? '', 'UTF-8', 'ISO-8859-1');
+      $array[$count]["municipio"]      = mb_convert_encoding($municipio ?? '', 'UTF-8', 'ISO-8859-1');
+      $array[$count]["estado"]         = mb_convert_encoding($estado ?? '', 'UTF-8', 'ISO-8859-1');
       $array[$count]["guias_veces"]    = $guias_veces;
-      $array[$count]["atributos"]      = $atributos;
+      $array[$count]["atributos"]      = mb_convert_encoding($atributos ?? '', 'UTF-8', 'ISO-8859-1');
       $txtmcr = "";
       if($maguey_con_registro == 1){
           $txtmcr = "EN SITIO";
@@ -177,7 +179,7 @@ function listadoPredios(){
     $sql->close();
 
 
-    $json["total"]  = $total_registros;//$numRegistros;
+    $json["total"]  = $total_registros;
     $json["rows"]   = $array;
     echo json_encode($json);
 
@@ -224,14 +226,15 @@ function getDatosPredio(){
     $predio = array();
     $predio["id"]    = $id;
     $predio["id_paraje"] = $id_paraje;
-    $predio["paraje"] = $paraje;
+    // [CAMBIO — acentos] Conversión de ISO-8859-1 a UTF-8.
+    $predio["paraje"] = mb_convert_encoding($paraje ?? '', 'UTF-8', 'ISO-8859-1');
     $predio["lat"] = $lat;
     $predio["lng"] = $lng;
     $predio["tenencia"] = $tenencia;
     $predio["superficie"] = $superficie;
-    $predio["usufruto"] = $usufruto;
-    $predio["nombrep"] = $nombrep;
-    $predio["rcampo"] = $rcampo;
+    $predio["usufruto"] = mb_convert_encoding($usufruto ?? '', 'UTF-8', 'ISO-8859-1');
+    $predio["nombrep"] = mb_convert_encoding($nombrep ?? '', 'UTF-8', 'ISO-8859-1');
+    $predio["rcampo"] = mb_convert_encoding($rcampo ?? '', 'UTF-8', 'ISO-8859-1');
     $predio["servicio"] = $servicio;
     $predio["maguey_con_registro"] = $maguey_con_registro;
     $sql->close();
@@ -240,7 +243,6 @@ function getDatosPredio(){
               FROM paraje p
               LEFT JOIN parajes_atributos_asignar paa ON p.id_paraje = paa.id_paraje AND paa.estatus = '1'
               INNER JOIN paraje_atributo pa ON paa.atributo_id = pa.id 
-              -- INNER JOIN parajes_atributos_fotos paf ON paa.id = paf.id_paa  AND paf.estatus = '1'
               WHERE p.id_paraje = ? and paa.estatus = '1'");
     if (!$sql) throw new Exception("Ocurrio un error al actualizar la muestra (ERROR:01) $conexion->error");
     $sql->bind_param("s",$id_paraje);
@@ -250,20 +252,17 @@ function getDatosPredio(){
     $atributos = array();
     $con = 0;
     while ($sql->fetch()) {
-      //$predio["atributos"][] = array("id" => $id, "fecha" => $fecha, "observaciones" => $observaciones, "estatus" => $estatus);
       $atributos[$con]["id"] = $id;
       $atributos[$con]["id_paa"] = $id_paa;
       $atributos[$con]["fecha"] = $fecha;
-      $atributos[$con]["observaciones"] = $observaciones;
+      // [CAMBIO — acentos] Conversión de ISO-8859-1 a UTF-8.
+      $atributos[$con]["observaciones"] = mb_convert_encoding($observaciones ?? '', 'UTF-8', 'ISO-8859-1');
       $atributos[$con]["estatus"] = $estatus;
       $atributos[$con]["nivel"] = $nivel;
       $con++;
-      //array("id" => $id, "id_paa" => $id_paa, "fecha" => $fecha, "observaciones" => $observaciones, "estatus" => $estatus);
     }
     $sql->close();
     foreach ($atributos as $key => $value) {
-      //print_r($value["id_paa"]);
-      //$predio["atributos"][] = $value;
       $sql = $conexion->prepare("SELECT id, id_paa, nombre, ruta, estatus
               FROM parajes_atributos_fotos 
               WHERE id_paa = ? and estatus = '1'");
@@ -275,18 +274,15 @@ function getDatosPredio(){
       $fotos = array();
       while ($sql->fetch()) {
         $fotos[] = array("id" => $id, "nombre" => $nombre, "ruta" => $ruta, "estatus" => true);
-        //$atributos[$key]["fotos"] = array("id" => $id, "id_paa" => $id_paa, "nombre" => $nombre, "nombre_bd" => $nombre_bd, "ruta" => $ruta, "estatus" => $estatus);
       }
       $atributos[$key]["fotos"] = $fotos;
       $sql->close();
     }
 
-    //$predio["atributos"] = $atributos;
     $jsonPredio = json_encode($predio);
     $jsonAtributos = json_encode($atributos);
     
     echo json_encode(array("codigo" => 0, "datosPredio" => $jsonPredio, "datosAtributos" => $jsonAtributos));
-    // , "correos" => $arrCorreos
 
   } catch (\Exception $e) {
     $conexion->close();
@@ -304,31 +300,19 @@ function registraPredio(){
 
     $conexion->set_charset("utf8");
     $conexion->autocommit(FALSE);
-    $registro   = json_decode($_POST['registro']); 
-    //$documentos = json_decode($_POST['documentos']); 
-    $atributos   = json_decode($_POST['atributos']); 
+    // [CAMBIO OBLIGATORIO PHP 8] $_POST['registro'] y $_POST['atributos'] se leían
+    // sin verificar que existieran. Si faltaban, json_decode(null) además genera
+    // aviso Deprecated en PHP 8.1+ (el primer parámetro debe ser string).
+    $registro   = json_decode($_POST['registro'] ?? 'null');
+    $atributos   = json_decode($_POST['atributos'] ?? '[]');
     $inUsuario  = isset($_POST["usuario"])?$_POST["usuario"]:null;
-    //$documentos = json_decode($_POST['documentos']); 
     $tipo       = isset($_POST["tipo"])?$_POST["tipo"]:null;
 
-    //$estado = strtoupper($registro->Estado);
+    if (!is_array($atributos)) {
+      $atributos = array();
+    }
+
     if($registro->id > 0) {
-      /*$sql = $conexion->prepare("UPDATE `clientes` SET rfc = ?,                  curp = ?,         razon_social = ?,       nombre_comercial = ?,    apellido_paterno = ?,
-                                                          apellido_materno = ?,  calle = ?,        no_exterior = ?,        no_interior = ?,         colonia = ?,
-                                                          localidad = ?,         municipio = ?,    tipo_persona = ?,       tels = ?,                Estado = ?, 
-                                                          regimen_fiscal = ?,    codigo_postal = ?,moneda = ?,             nuevomod = '1',          usuario_mod = ?,  
-                                                          ultima_mod = NOW(),    contacto = ?,     telefono_contacto = ?,  sociedad_mercantil = ?
-                                 WHERE id = ? ");
-      
-      if (!$sql) throw new Exception(json_encode(array("codigo" => 1,"ref" => "ERR:02","msg" => $conexion->error)));
-      $sql->bind_param("ssssssssssssssssssssssi",$registro->rfc,             $registro->curp,       $registro->razon_social,  $registro->nombre_comercial,    $registro->apellido_paterno,
-                                       $registro->apellido_materno, $registro->calle,         $registro->no_exterior,  $registro->no_interior,         $registro->colonia,
-                                       $registro->localidad,        $registro->municipio,     $registro->tipo_persona, $registro->tels,                $registro->estado,  
-                                       $registro->regimen_fiscal,   $registro->codigo_postal,    $registro->moneda,    $inUsuario,                    $registro->contacto,
-                                       $registro->telefono_contacto,$registro->sociedad_mercantil,$registro->id);
-      if (!$sql->execute()) throw new Exception(json_encode(array("codigo" => 1,"ref" => "ERR:03","msg" => $conexion->error)));
-      $_ID_CLIENTE_OAX = $registro->id;
-      $sql->close();*/
 
       foreach($atributos as $atributo) {
         $estatusFotos = "0";
@@ -352,7 +336,6 @@ function registraPredio(){
             $ID_PAA = $conexion->insert_id;
             $indexDoc = "documentos" . $idAtributo;
           }
-          //REVISAR SI HAY ARCHIVOS A IMPORTAR
           if(isset($_FILES[$indexDoc])) {
             foreach($_FILES[$indexDoc]['name'] as $index => $value){
       
@@ -394,9 +377,7 @@ function registraPredio(){
             $ID_PAA = $conexion->insert_id;
             $indexDoc = "documentos" . $idAtributo;
           }
-          //$estatusFotos = '0';
         }
-        // DESKTOP-CACV27P
         if(isset($atributo->fotos) && is_array($atributo->fotos)) {
           $documentos = $atributo->fotos;
           foreach($documentos as $indice => $docs) {
@@ -428,7 +409,6 @@ function registraPredio(){
           $ID_PAA = $conexion->insert_id;
           $indexDoc = "documentos" . $idAtributo;
         
-          //REVISAR SI HAY ARCHIVOS A IMPORTAR
           if(isset($_FILES[$indexDoc])) {
             foreach($_FILES[$indexDoc]['name'] as $index => $value){
       
@@ -464,45 +444,6 @@ function registraPredio(){
       }
     }
 
-    /*if(isset($_FILES)) {
-			foreach($_FILES as $file){
-				if($file['error'] == 0) {
-					$name = $conexion->real_escape_string($file['name']);
-					$mime = $conexion->real_escape_string($file['type']);
-					$data = $conexion->real_escape_string(file_get_contents($file['tmp_name']));*/
-
-    /*if(isset($_FILES['documentos'])) {
-      foreach($_FILES['documentos']['name'] as $index => $value){
-
-        $name     = $conexion->real_escape_string($_FILES['documentos']['name'][$index]);
-        $tmp_name = $_FILES['documentos']['tmp_name'][$index];
-        
-        $extencion 					= substr($name, strrpos($name, '.'));
-        $random_Number      = rand(0, 9999999999);
-        $nuevoNombre 		    = "documento_".$random_Number.$extencion;
-        
-        $sql = $conexion->prepare("INSERT INTO `parajes_atributos_fotos`(nombre, nombre_bd, id_us) VALUES (?,?,?) ");
-        if (!$sql) throw new Exception(json_encode(array("codigo" => "0021","error" => $conexion->error)));
-        $sql->bind_param("ssi", $name, $nuevoNombre, $inUsuario);
-        if (!$sql->execute()) throw new Exception(json_encode(array("codigo" => "0022","error" => $conexion->error)));
-        $sql->close();
-
-        $path = $_SERVER['DOCUMENT_ROOT']."/sigce/maguey/images/fotosAtributos";
-
-        if (!file_exists($path)) {
-          if (!mkdir($path, 0777, true)) {
-            throw new Exception(json_encode(array("codigo" => "0023","error" => error_get_last(),"path" => $path)));
-          }
-        }
-
-        $rutaDestino = $path.'/'.$nuevoNombre;
-        if(!move_uploaded_file($tmp_name,$rutaDestino  )) {
-          throw new Exception(json_encode(array("codigo" => "0024","error" => error_get_last(),"path" => $rutaDestino)));
-        }
-    
-      }
-		}*/
-
     if (!$conexion->commit()) {
       $conexion->rollback();
       throw new Exception(json_encode(array("codigo" => 1,"ref" => "ERR:500","msg" => $conexion->error)));
@@ -510,8 +451,6 @@ function registraPredio(){
 		}
 
     $return_arr = array();
-    
-   
 
     echo json_encode(array("codigo" => 0,"status" => "correcto"));
 
@@ -539,7 +478,8 @@ function getOpciones(){
       $con = 0;
       while($sql->fetch()){
         $estados[$con]["id"]    = $id;
-        $estados[$con]["value"] = $nombre;
+        // [CAMBIO — acentos] Conversión de ISO-8859-1 a UTF-8.
+        $estados[$con]["value"] = mb_convert_encoding($nombre ?? '', 'UTF-8', 'ISO-8859-1');
         $con++;
       }
       $sql->close();
@@ -554,9 +494,11 @@ function getOpciones(){
       $con = 0;
       while($sql->fetch()){
         $atributos[$con]["id"]    = $id;
-        $atributos[$con]["value"] = $atributo;
-        $atributos[$con]["abreviado"] = $abreviado;
-        $atributos[$con]["detalles"] = $detalles;
+        // [CAMBIO — acentos] Estos campos son justo los que se ven mal en el
+        // combo "Atributos" de la captura (ej. "ORG??NICO").
+        $atributos[$con]["value"] = mb_convert_encoding($atributo ?? '', 'UTF-8', 'ISO-8859-1');
+        $atributos[$con]["abreviado"] = mb_convert_encoding($abreviado ?? '', 'UTF-8', 'ISO-8859-1');
+        $atributos[$con]["detalles"] = mb_convert_encoding($detalles ?? '', 'UTF-8', 'ISO-8859-1');
         $atributos[$con]["img"] = $img;
         $atributos[$con]["fecha"] = "";
         $atributos[$con]["estatus"] = false;
@@ -570,7 +512,6 @@ function getOpciones(){
       echo json_encode(array("codigo" => 0, 'estados' => $jsonEdos, 'atributos' => $atributos));
 
   } catch (\Exception $e) {
-      // Manejar excepciones y enviar respuesta de error
       $conexion->close();
       header('HTTP/1.1 500 Internal Server Error');
       header('Content-Type: application/json; charset=UTF-8');
@@ -583,7 +524,8 @@ function getMunicipios(){
   try {
       include('../../common/conexion.php');
       $conexion->set_charset("utf8");
-      $estado = json_decode($_GET['estado']); 
+      // [CAMBIO OBLIGATORIO PHP 8] $_GET['estado'] sin verificar.
+      $estado = json_decode($_GET['estado'] ?? 'null'); 
 
       $sql = $conexion->prepare("SELECT id, estado, nombre FROM municipios WHERE estado = ? ");
       if (!$sql) throw new Exception(json_encode(array("codigo" => 1, "ref" => "ERR:02", "msg" => $conexion->error)));
@@ -595,7 +537,8 @@ function getMunicipios(){
       $con = 0;
       while($sql->fetch()){
         $municipios[$con]["id"]    = $id;
-        $municipios[$con]["value"] = $nombre;
+        // [CAMBIO — acentos] Conversión de ISO-8859-1 a UTF-8.
+        $municipios[$con]["value"] = mb_convert_encoding($nombre ?? '', 'UTF-8', 'ISO-8859-1');
         $municipios[$con]["estado"] = $estado;
         $con++;
       }
@@ -605,7 +548,6 @@ function getMunicipios(){
       echo json_encode(array("codigo" => 0, 'municipios' => $jsonMpios));
 
   } catch (\Exception $e) {
-      // Manejar excepciones y enviar respuesta de error
       $conexion->close();
       header('HTTP/1.1 500 Internal Server Error');
       header('Content-Type: application/json; charset=UTF-8');
@@ -618,7 +560,8 @@ function getLocalidades(){
   try {
       include('../../common/conexion.php');
       $conexion->set_charset("utf8");
-      $municipio = json_decode($_GET['municipio']); 
+      // [CAMBIO OBLIGATORIO PHP 8] $_GET['municipio'] sin verificar.
+      $municipio = json_decode($_GET['municipio'] ?? 'null'); 
 
       $sql = $conexion->prepare("SELECT id, MunicipioID, localidad FROM localidades WHERE MunicipioID = ? ");
       if (!$sql) throw new Exception(json_encode(array("codigo" => 1, "ref" => "ERR:02", "msg" => $conexion->error)));
@@ -630,7 +573,8 @@ function getLocalidades(){
       $con = 0;
       while($sql->fetch()){
         $localidades[$con]["id"]    = $id;
-        $localidades[$con]["value"] = $localidad;
+        // [CAMBIO — acentos] Conversión de ISO-8859-1 a UTF-8.
+        $localidades[$con]["value"] = mb_convert_encoding($localidad ?? '', 'UTF-8', 'ISO-8859-1');
         $localidades[$con]["municipio"] = $MunicipioID;
         $con++;
       }
@@ -640,7 +584,6 @@ function getLocalidades(){
       echo json_encode(array("codigo" => 0, 'localidades' => $jsonLoc));
 
   } catch (\Exception $e) {
-      // Manejar excepciones y enviar respuesta de error
       $conexion->close();
       header('HTTP/1.1 500 Internal Server Error');
       header('Content-Type: application/json; charset=UTF-8');

@@ -53,8 +53,6 @@ catch (Exception $e) {
 	$conexion->close();
 }	 
 ?>
- 
-
 
 
 
