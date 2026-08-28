@@ -1,6 +1,6 @@
 <?php
-session_start();
 session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
+session_start();
 $mod=1;
 require_once(__DIR__ . '/../common/cfg_server.php');
 $d_s=$_GET['d_s'];
