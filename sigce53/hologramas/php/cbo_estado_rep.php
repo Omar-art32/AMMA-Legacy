@@ -1,6 +1,6 @@
 <?php
-include('../../common/conexion.php');
-$client=utf8_decode ($_POST['cliente']);
+include(__DIR__ . '/../../common/conexion.php');
+$client=mb_convert_encoding ($_POST['cliente'], 'ISO-8859-1');
 $client=substr($client,0,4);
 //$usr=$_POST['user'];
 //$fecha = date("Y-m-d H:i:s" );
@@ -32,12 +32,12 @@ else
 	  }
 	}
 	$cbo.="</select>";
-	echo json_encode(array('status' => 'correcto','cbo'=> $cbo));
+	echo json_encode(['status' => 'correcto','cbo'=> $cbo]);
   }
   else
   {
 	  $msj="<font color='#990000'>Sin Registros&nbsp;&nbsp;</font>";
-	echo json_encode(array('status' => 'error','msj'=> $msj));
+	echo json_encode(['status' => 'error','msj'=> $msj]);
   }
 }		 
 
