@@ -10,6 +10,9 @@ $conexion->set_charset("utf8");
 header('Content-Type: text/html; charset=UTF-8');
 
 /**
+ * ============================================================================
+ *  CAPA DE COMPATIBILIDAD PHP 8.3 (no altera la logica ni el diseno del PDF)
+ * ============================================================================
  *  1) utf8_decode() esta OBSOLETA desde PHP 8.2 (se elimina en PHP 9).
  *     compat_utf8_decode() reproduce EXACTAMENTE el mismo resultado
  *     (conversion UTF-8 -> ISO-8859-1) usando mb_convert_encoding(),
@@ -23,6 +26,7 @@ header('Content-Type: text/html; charset=UTF-8');
  *
  *  Ambas funciones se definen solo si no existen, para poder incluir
  *  este archivo mas de una vez sin provocar errores de redeclaracion.
+ * ============================================================================
  */
 if (!function_exists('compat_utf8_decode')) {
 	function compat_utf8_decode(?string $string): string
@@ -85,11 +89,11 @@ function __construct($orientation='P',$unit='mm',$format='A4') {
 
 		$this->oldx=0;
 		$this->oldy=0;
-		$fontDir = __DIR__ . '/../../vendor/setasign/fpdf/makefont/';
+		$fontDir = __DIR__ . '/../../librerias/fpdf/font/json/';
 
 		$this->AddFont('Calibri', '', 'CalibriRegular.json', $fontDir);
-		$this->AddFont('Calibri-Bold', '', 'calibri-bold.json', $fontDir);
-		$this->AddFont('Calibri-BoldItalic', '', 'calibri-bold-italic.json', $fontDir);
+		$this->AddFont('Calibri-Bold', '', 'CalibriBold.json', $fontDir);
+		$this->AddFont('Calibri-BoldItalic', '', 'CalibriBoldItalic.json', $fontDir);
 		$this->fontlist=array("Calibri","Times","times","courier","helvetica","symbol");
 		$this->issetfont=false;
 		$this->issetcolor=false;
@@ -283,7 +287,11 @@ where p.id_paraje='$paraje'";
 	//Cambiar locales a español México
 	$parajes= $conexion->query($strConsulta);
 	//$parajes = mysql_query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	$fila = mysqli_fetch_array($parajes) ?? [
+		'anio'=>'','nombrep'=>'','paraje'=>'','tenencia'=>'','id_paraje'=>null,
+		'id_cliente'=>null,'regmaguey'=>'','constanciae'=>'','parajes'=>'',
+		'fecha1'=>null,'fecha2'=>null,'nombrec'=>'',
+	];
 
 
 	//aqui empieza del paraje
@@ -298,7 +306,10 @@ where p.id_paraje='$paraje'";
 		//$nombrecc = $fila['nombrec'];
 	$ubicaciones= $conexion->query($Consulta);
 	//$parajes = mysql_query($strConsulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 
 
 
@@ -464,7 +475,10 @@ where p.id_paraje='$paraje'";
 		where p.id_paraje='$paraje'";
 
 	$ubicaciones= $conexion->query($Consulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 // Aqui empieza la tabla de atributos de la tierra
 
 	$pdf->Ln(3);
@@ -633,7 +647,10 @@ where p.id_paraje='$paraje'";
 
 		//$nombrecc = $fila['nombrec'];
 		$ubicaciones= $conexion->query($Consulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 
 	$pdf->Ln(3);
 	$pdf->SetFont('Calibri-Bold','',10);

@@ -14,6 +14,9 @@ header("Content-Type: text/html; charset=iso-8859-1 ");
 
 
 /**
+ * ============================================================================
+ *  CAPA DE COMPATIBILIDAD PHP 8.3 (no altera la logica ni el diseno del PDF)
+ * ============================================================================
  *  1) compat_utf8_decode() esta OBSOLETA desde PHP 8.2 (se elimina en PHP 9).
  *     compat_utf8_decode() reproduce EXACTAMENTE el mismo resultado
  *     (conversion UTF-8 -> ISO-8859-1) usando mb_convert_encoding(),
@@ -27,6 +30,7 @@ header("Content-Type: text/html; charset=iso-8859-1 ");
  *
  *  Ambas funciones se definen solo si no existen, para poder incluir
  *  este archivo mas de una vez sin provocar errores de redeclaracion.
+ * ============================================================================
  */
 if (!function_exists('compat_utf8_decode')) {
 	function compat_utf8_decode(?string $string): string
@@ -85,13 +89,12 @@ var $aligns;
 
 		$this->oldx=0;
 		$this->oldy=0;
-		$fontDir = __DIR__ . '/../../vendor/setasign/fpdf/makefont/';
+		$fontDir = __DIR__ . '/../../librerias/fpdf/font/json/';
 		$this->AddFont('Calibri', '', 'CalibriRegular.json', $fontDir);
-		$this->AddFont('Calibri-Bold', '', 'calibri-bold.json', $fontDir);
-		$this->AddFont('Calibri-BoldItalic', '', 'calibri-bold-italic.json', $fontDir);
-		$this->AddFont('Calibri-Italic', '', 'calibri-italic.json', $fontDir);
-		$this->AddFont('Calibri-Light', '', 'calibri-light.json', $fontDir);
-		$this->AddFont('Calibri-LightItalic', '', 'calibri-light-italic.json', $fontDir);
+		$this->AddFont('Calibri-Bold', '', 'CalibriBold.json', $fontDir);
+		$this->AddFont('Calibri-BoldItalic', '', 'CalibriBoldItalic.json', $fontDir);
+		// Calibri-Italic, Calibri-Light y Calibri-LightItalic se retiraron:
+		// ningun SetFont() de este archivo las usa, y no se generaron sus .json.
 		$this->fontlist=array("Calibri","Times","times","courier","helvetica","symbol");
 		$this->issetfont=false;
 		$this->issetcolor=false;
@@ -230,7 +233,7 @@ function Footer()
 	$paraje= $_GET['id'];
 	$strConsulta="select tipo from paraje_vivero where id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	$fila = mysqli_fetch_array($parajes) ?? ['tipo' => null];
 
 	//$this->SetFont('Helvetica','BI',7);
 	$this->SetFont('Calibri','',7);
@@ -327,7 +330,12 @@ function Footer()
 
 
 	$parajes= $conexion->query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	// Consulta principal (paraje_vivero). Si $paraje no existe, se cubre
+	// con los mismos alias del SELECT para evitar Warnings.
+	$fila = mysqli_fetch_array($parajes) ?? [
+		'anio'=>'','nombrep'=>'','id_paraje'=>null,'id_cliente'=>null,'regmaguey'=>'',
+		'constancia'=>'','tipo'=>'','parajes'=>'','fecha1'=>null,'fecha2'=>null,
+	];
 
 
 
@@ -343,8 +351,26 @@ function Footer()
 				  where clientes.no_cliente='$cliente' and domicilio.estatus=1 
 				  ORDER BY domicilio.idDomicilio  LIMIT 1";
 
-	$clientes= $conexion->query($strCliente);
-	$filaClientes = mysqli_fetch_array($clientes);
+	// Se envuelve en try/catch: con mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT)
+	// activo (PHP 8.1+), un error SQL (p.ej. tabla inexistente) lanza una excepcion
+	// en vez de devolver false. Se preserva el mismo resultado ('---' en el PDF)
+	// que ya contemplaba el reporte para clientes sin correo/telefono.
+	try {
+		$clientes = $conexion->query($strCliente);
+		// mysqli_fetch_array() devuelve null si la consulta tuvo 0 filas.
+		$filaClientes = mysqli_fetch_array($clientes) ?? [
+			'contador' => 0, 'domicilio' => '', 'no_cliente' => $cliente,
+			'clienten' => '', 'calle' => '', 'noexterior' => '', 'nointerior' => '',
+			'colonia' => '', 'telefono' => '', 'correo' => '',
+		];
+	} catch (mysqli_sql_exception $e) {
+		error_log('reporte_historial3.php: fallo consulta de contacto de cliente: ' . $e->getMessage());
+		$filaClientes = [
+			'contador' => 0, 'domicilio' => '', 'no_cliente' => $cliente,
+			'clienten' => '', 'calle' => '', 'noexterior' => '', 'nointerior' => '',
+			'colonia' => '', 'telefono' => '', 'correo' => '',
+		];
+	}
 
 
 	if($fila['tipo']=='1'){
@@ -477,7 +503,10 @@ function Footer()
 
 
 	$ubicaciones= $conexion->query($Consulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 	/*if($fila['nombrep']==$filaClientes['clienten'] or $fila['nombrep']==''){ MANITO ANALI*/
 	//if(true){
 
@@ -725,7 +754,7 @@ function Footer()
 	inner join paraje_vivero pv on pv.id_localidad=localidades.id where  pv.id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
 	//$parajes = mysql_query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	$fila = mysqli_fetch_array($parajes) ?? ['id'=>null,'id_paraje'=>null,'id_localidad'=>null,'id_cliente'=>null,'paraje'=>'','lat'=>null,'lng'=>null,'poligono'=>'','tenencia'=>'','superficie'=>'','docpro'=>'','referencia'=>'','usufruto'=>'','fecha'=>null,'nombrep'=>'','fecha_paraje'=>null,'rcampo'=>'','status'=>null,'foto1'=>'','foto2'=>'','tipo'=>'','constancia_vivero'=>'','status_predio'=>null,'constancia_extracciones'=>null,'enombreee'=>'','nombre'=>''];
 	//Aqui termina
 
 		
@@ -853,7 +882,10 @@ function Footer()
 
 
 	$ubicaciones= $conexion->query($Consulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 	if($fila['nombrep']==$filaClientes['clienten'] or $fila['nombrep']==''){
 
 		$pdf->Ln(7);
@@ -1010,7 +1042,9 @@ function Footer()
 	inner join comun on comun.id_comun=epv.id_comun 
 	inner join especie on especie.id_especie=comun.id_especie WHERE  pv.id_paraje='$paraje'";
 	$historialito= $conexion->query($consultandovive);
-	$result = mysqli_fetch_array($historialito);
+	$result = mysqli_fetch_array($historialito) ?? [
+		'genespecie'=>'','fecha_siembra'=>null,'foto1'=>'','foto2'=>'',
+	];
 
 	$strConsulta = "SELECT pv.id_paraje,origen, epv.regmaguey, epv.cantidadini,fecha_siembra,epv.edad, comun.nombre,especie.genespecie,especie.variante
 	FROM existenciaplanta_vivero epv
@@ -1112,7 +1146,7 @@ function Footer()
 	where  pv.id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
 	//$parajes = mysql_query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	$fila = mysqli_fetch_array($parajes) ?? ['id'=>null,'id_paraje'=>null,'id_localidad'=>null,'id_cliente'=>null,'paraje'=>'','lat'=>null,'lng'=>null,'poligono'=>'','tenencia'=>'','superficie'=>'','docpro'=>'','referencia'=>'','usufruto'=>'','fecha'=>null,'nombrep'=>'','fecha_paraje'=>null,'rcampo'=>'','status'=>null,'foto1'=>'','foto2'=>'','tipo'=>'','constancia_vivero'=>'','status_predio'=>null,'constancia_extracciones'=>null,'enombreee'=>'','nombre'=>''];
 	//Aqui termina
 
 		/*$urlGoogle ="http://maps.googleapis.com/maps/api/staticmap?key=AIzaSyCD3xqb8eMEVsAd4m9QnD7s1wOE9_bnALY&center=$coordenada1,$coordenada2&zoom=8&scale=false&size=600x300&maptype=hybrid&format=png&visual_refresh=true&markers=size:mid%7Ccolor:0xff0000%7Clabel:*%7C$coordenada1,$coordenada2";
@@ -1144,9 +1178,7 @@ function Footer()
 
 		}
 
-   if (ob_get_level() > 0) {
-		ob_end_clean();
-	}
+   ob_end_clean();
 
 
     $conexion->close();
