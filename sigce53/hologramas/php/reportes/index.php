@@ -174,10 +174,10 @@ function acumulado() {
 function estadisticas1() {  
   try {
     include(__DIR__ . '/../../../common/conexion.php');
-	  $conexion->set_charset("utf8");
-    $tipo        = $_GET['tipo'];
-    $limit        = isset($_GET['limit']) ? " LIMIT " . $_GET['limit'] : "";
-    $offset       = isset($_GET['offset']) ? " OFFSET " . $_GET['offset'] : "";
+    $conexion->set_charset("utf8");
+    $tipo        = $_GET['tipo'] ?? '';
+    $limit       = isset($_GET['limit']) ? " LIMIT " . $_GET['limit'] : "";
+    $offset      = isset($_GET['offset']) ? " OFFSET " . $_GET['offset'] : "";
 
     $sqltxt = "
       SELECT 
@@ -197,26 +197,35 @@ function estadisticas1() {
     if (!$sql) throw new Exception("Ocurrio un error al obtener la información (ERROR:01) $conexion->error");
     if (!$sql->execute()) throw new Exception("Ocurrio un error al obtener la información (ERROR:02) $conexion->error");
     $sql->store_result();
+    
+    $_MES = null;
+    $_ANIO = null;
+    $_MONTO = null;
     $sql->bind_result($_MES, $_ANIO, $_MONTO);
-    $count = 0;
+    
+    $arrayGrafica = [];
     $arrMes = [1=>"Ene", 2=>"Feb", 3=>"Mar", 4=>"Abr", 5=>"May", 6=>"Jun",
                   7=>"Jul", 8=>"Ago", 9=>"Sep", 10=>"Oct", 11=>"Nov", 12=>"Dic" ];
+                  
     while($sql->fetch()) {
-      $arrayGrafica[$_MES]["mes"] = $_MES;
-      $arrayGrafica[$_MES]["nMes"] = $arrMes[$_MES];
-      $arrayGrafica[$_MES]["m".$_ANIO] = $_MONTO;
+      $keyMes = $_MES ?? 0;
+      $arrayGrafica[$keyMes]["mes"] = $keyMes;
+      $arrayGrafica[$keyMes]["nMes"] = $arrMes[$keyMes] ?? '';
+      $arrayGrafica[$keyMes]["m".$_ANIO] = $_MONTO;
     }
     
+    // Cálculo seguro del promedio previniendo división por cero
     foreach ($arrayGrafica as $key => $value) {
-      $veces = 0; $suma = 0;
-      for($i = 2022; $i <= date("Y"); $i++) {
+      $veces = 0; 
+      $suma = 0;
+      for($i = 2022; $i <= (int)date("Y"); $i++) {
         if(isset($value["m".$i])) {
           $suma += $value["m".$i];
           $veces++;
         }
-        $promedio = $suma / $veces;
-        $arrayGrafica[$key]["promedio"] = $promedio;
       }
+      $promedio = ($veces > 0) ? ($suma / $veces) : 0;
+      $arrayGrafica[$key]["promedio"] = $promedio;
     }
 
     $sqltxt = "
@@ -245,25 +254,34 @@ function estadisticas1() {
     if (!$sql) throw new Exception("Ocurrio un error al obtener la información (ERROR:05) $conexion->error");
     if (!$sql->execute()) throw new Exception("Ocurrio un error al obtener la información (ERROR:06) $conexion->error");
     $sql->store_result();
+    
+    $_MES = null;
+    $_ANIO = null;
+    $_MONTO = null;
     $sql->bind_result($_MES, $_ANIO, $_MONTO);
+    
+    $array = [];
     $count = 0;
     while($sql->fetch()) {
         $array[$count]["mes"] = $_MES;
         $array[$count]["anio"] = $_ANIO;
         $array[$count]["monto"]   = $_MONTO;
-        $array[$count]["nMes"] = $arrMes[$_MES];
+        $array[$count]["nMes"] = $arrMes[$_MES] ?? '';
         $count++;
     }
     $sql->close();
     
-    $json["total"]  = $numRegistros;
-    $json["rows"]   = $array;
+    $json = [];
+    $json["total"]   = $numRegistros;
+    $json["rows"]    = $array;
     $json["grafica"] = $arrayGrafica;
     echo json_encode($json);
   } catch (\Exception $e) {
-    $conexion->close();
+    if (isset($conexion) && $conexion instanceof \mysqli) {
+        $conexion->close();
+    }
     echo $e->getMessage();
-    header('HTTP/1.1 500 Internal Server Booboo');
+    header('HTTP/1.1 500 Internal Server Error');
     header('Content-Type: application/json; charset=UTF-8');
     die();
   }
