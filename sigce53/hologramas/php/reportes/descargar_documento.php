@@ -1,11 +1,10 @@
 <?php
 //session_start();
 if (isset($_GET["tipo"])) {
-    include("../../../common/conexion.php");
-        
+    include(__DIR__ . "/../../../common/conexion.php");
     if ($_GET["tipo"] == "R") {
         $id = hexdec($_GET["id"])^1337;
-		try {
+        try {
 			$sql = "SELECT id_recibo, anio_rcbo FROM h_salidas WHERE id_salidas = ?";
 			$ps = $conexion->prepare($sql);
 			$ps->bind_param("i", $id);
@@ -28,13 +27,14 @@ if (isset($_GET["tipo"])) {
 			$conexion->close();
 
 		}
-		catch (mysqli_sql_exception $e) {
+		catch (mysqli_sql_exception) {
 			$conexion->close();
 		}
-		exit;
-    } elseif ($_GET["tipo"] == "AR") {
+        exit;
+    }
+    if ($_GET["tipo"] == "AR") {
         $id = hexdec($_GET["id"])^1337;
-		try {
+        try {
 			$sql = "SELECT nombreAcuse, anio_rcbo FROM h_salidas WHERE id_salidas = ?";
 			//echo $sql;
 			$ps = $conexion->prepare($sql);
@@ -55,14 +55,16 @@ if (isset($_GET["tipo"])) {
 			$conexion->close();
 
 		}
-		catch (mysqli_sql_exception $e) {
+		catch (mysqli_sql_exception) {
 			$conexion->close();
 		}
-		exit;
-    } elseif ($_GET["tipo"] == "A") {
+        exit;
+    }
+        
+    if ($_GET["tipo"] == "A") {
         //$id = hexdec($_GET["id_salida"])^1337;
         $id = $_GET["id_salida"];
-		try {
+        try {
 			$sql = "SELECT nombreAcuse, anio_rcbo FROM h_salidas WHERE id_salidas = ?";
 			//echo $sql;
 			$ps = $conexion->prepare($sql);
@@ -86,9 +88,9 @@ if (isset($_GET["tipo"])) {
 			$conexion->close();
 
 		}
-		catch (mysqli_sql_exception $e) {
+		catch (mysqli_sql_exception) {
 			$conexion->close();
 		}
-		exit;
+        exit;
     } 
 }
