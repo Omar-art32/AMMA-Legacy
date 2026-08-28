@@ -87,6 +87,7 @@ function fecha_mx_v2($value)
 
 class PDFFormatoPueblaV2 extends FPDF
 {
+    public $fontlist;
     var $widths;
     var $aligns;
 
@@ -258,8 +259,7 @@ if ($idIn === '') {
 $sql = $conexion->prepare("SELECT p.id, p.id_paraje, p.id_cliente, p.paraje, p.lat, p.lng, p.tenencia,
                                   p.superficie, p.docpro, p.referencia, p.usufruto, p.fecha, p.nombrep,
                                   p.rcampo, p.tipo, p.fecharegistro,
-                                  c.no_cliente, UPPER(c.nombre) AS cliente, dt.telefono, dc.correo,
-                                  -- CONCAT_WS(', ', c.calle, c.noexterior, c.nointerior, c.colonia, mun_cli.nombre, edo_cli.nombre) AS domicilio,
+                                  c.no_cliente, UPPER(c.nombre) AS cliente, c.telefono AS telefono, c.correo AS correo,
                                   CONCAT(d.calle, ' #', d.noexterior,', ',d.colonia,', ',mun.nombre,', ',es.nombre) as domicilio,
                                   l.localidad, mun.nombre AS municipio, es.nombre AS estado,
                                   LPAD(const.id_constancia,4,'0') constancia, SUBSTRING(p.fecha_paraje, 3, 2) anio
@@ -268,26 +268,8 @@ $sql = $conexion->prepare("SELECT p.id, p.id_paraje, p.id_cliente, p.paraje, p.l
                              LEFT JOIN domicilio d on d.no_cliente=c.no_cliente 
                              LEFT JOIN localidades l ON p.id_localidad = l.id
                              LEFT JOIN municipios mun ON d.municipio = mun.id
-                             -- LEFT JOIN municipios mun ON l.MunicipioID = mun.id
                              LEFT JOIN estados es ON mun.estado = es.clave 
                              LEFT JOIN constancias const on (const.id_paraje=p.id_paraje COLLATE utf8_general_ci) 
-                             LEFT JOIN (
-								SELECT c.no_cliente no_cliente, GROUP_CONCAT(t.numero) telefono 
-								FROM clientes c
-								INNER JOIN clientes_telefonos ct ON ct.cliente = c.no_cliente  
-								LEFT JOIN telefonos t ON t.id = ct.telefono 
-								WHERE t.tipo = 0 -- AND t.status = '2' 
-								GROUP BY c.no_cliente
-                             ) AS dt ON c.no_cliente = dt.no_cliente 
-                            LEFT JOIN (
-								SELECT ce.`id`, c.no_cliente, GROUP_CONCAT(ce.`correo`) correo
-								FROM `correos_electronicos` ce
-								INNER JOIN clientes_correos cc ON cc.correo=ce.id 
-								INNER JOIN clientes c ON c.no_cliente = cc.cliente 
-								WHERE ce.correo NOT LIKE 'registros.uac%' 
-								GROUP BY c.no_cliente
-								ORDER BY ce.principal DESC
-                             ) AS dc ON c.no_cliente = dc.no_cliente 
                             WHERE p.id = ? OR p.id_paraje = ?
                             LIMIT 1");
 if (!$sql) {
