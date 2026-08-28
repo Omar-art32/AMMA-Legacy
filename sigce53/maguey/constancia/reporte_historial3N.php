@@ -171,7 +171,7 @@ class PDF extends FPDF {
         $paraje = $_GET['id'];
         $strConsulta = "select tipo from paraje where paraje.id_paraje='$paraje'";
         $parajes = $conexion->query($strConsulta);
-        $fila = mysqli_fetch_array($parajes);
+        $fila = mysqli_fetch_array($parajes) ?? ['tipo' => null];
 
         $this->SetFont('Helvetica', 'BI', 7);
         if ($fila['tipo'] == '1') {
@@ -227,7 +227,10 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 
 	$parajes = $conexion->query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	$fila = mysqli_fetch_array($parajes) ?? [
+		'anio'=>'','nombrep'=>'','id_paraje'=>null,'id_cliente'=>null,'regmaguey'=>'',
+		'constancia'=>'','tipo'=>'','parajes'=>'','fecha1'=>null,'fecha2'=>null,
+	];
 
 
 	$cliente = $fila['id_cliente'];
@@ -239,7 +242,11 @@ while($filaP = mysqli_fetch_object($resulP)) {
 					  where clientes.no_cliente='$cliente' and domicilio.estatus=1 ORDER BY domicilio.idDomicilio  LIMIT 1";
 
 	$clientes = $conexion_remota->query($strCliente);
-	$filaClientes = mysqli_fetch_array($clientes);
+	$filaClientes = mysqli_fetch_array($clientes) ?? [
+		'contador' => 0, 'domicilio' => '', 'no_cliente' => $cliente,
+		'clienten' => '', 'calle' => '', 'noexterior' => '', 'nointerior' => '',
+		'colonia' => '', 'telefono' => '', 'correo' => '',
+	];
 
 
 
@@ -336,7 +343,10 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 
 	    $ubicaciones = $conexion->query($Consulta);
-	    $dato = mysqli_fetch_array($ubicaciones);
+	    $dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	    ];
 	    if ($fila['nombrep'] == $filaClientes['clienten'] or $fila['nombrep'] == '') {
 
 	        $pdf->Ln(7);
@@ -643,7 +653,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	            $strConsulta = "SELECT paraje_vivero.*, estados.ubica as enombreee,estados.nombre from estados inner join municipios on municipios.estado=estados.clave inner join localidades on localidades.MunicipioID=municipios.id inner join paraje_vivero on paraje_vivero.id_localidad=localidades.id where  paraje_vivero.id_paraje='$paraje'";
 	            $parajes = $conexion->query($strConsulta);
 	            //$parajes = mysql_query($strConsulta);
-	            $fila = mysqli_fetch_array($parajes);
+	            $fila = mysqli_fetch_array($parajes) ?? ['id'=>null,'id_paraje'=>null,'id_localidad'=>null,'id_cliente'=>null,'paraje'=>'','lat'=>null,'lng'=>null,'poligono'=>'','tenencia'=>'','superficie'=>'','docpro'=>'','referencia'=>'','usufruto'=>'','fecha'=>null,'nombrep'=>'','fecha_paraje'=>null,'rcampo'=>'','status'=>null,'foto1'=>'','foto2'=>'','tipo'=>'','constancia_vivero'=>'','status_predio'=>null,'constancia_extracciones'=>null,'enombreee'=>'','nombre'=>''];
 	            //Aqui termina
 
 	            $urlGoogle = "http://maps.googleapis.com/maps/api/staticmap?center=$coordenada1,$coordenada2&zoom=8&scale=false&size=600x300&maptype=hybrid&format=png&visual_refresh=true&markers=size:mid%7Ccolor:0xff0000%7Clabel:*%7C$coordenada1,$coordenada2";
@@ -781,7 +791,10 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 
 	    $ubicaciones = $conexion->query($Consulta);
-	    $dato = mysqli_fetch_array($ubicaciones);
+	    $dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	    ];
 	    if ($fila['nombrep'] == $filaClientes['clienten'] or $fila['nombrep'] == '') {
 
 	        $pdf->Ln(7);
@@ -931,7 +944,9 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->Ln(5);
 	    $consultandovive = "SELECT genespecie,fecha_siembra,foto1,foto2 from paraje_vivero inner join existenciaplanta_vivero on existenciaplanta_vivero.id_paraje=paraje_vivero.id_paraje inner join comun on comun.id_comun=existenciaplanta_vivero.id_comun inner join especie on especie.id_especie=comun.id_especie WHERE  paraje_vivero.id_paraje='$paraje'";
 	    $historialito = $conexion->query($consultandovive);
-	    $result = mysqli_fetch_array($historialito);
+	    $result = mysqli_fetch_array($historialito) ?? [
+		'genespecie'=>'','fecha_siembra'=>null,'foto1'=>'','foto2'=>'',
+	    ];
 
 	    $strConsulta = "SELECT paraje_vivero.id_paraje,origen, existenciaplanta_vivero.regmaguey, existenciaplanta_vivero.cantidadini,fecha_siembra,existenciaplanta_vivero.edad, comun.nombre,especie.genespecie,especie.variante
 		FROM existenciaplanta_vivero
@@ -1013,7 +1028,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $strConsulta = "SELECT paraje_vivero.*,paraje_vivero.foto1,paraje_vivero.foto2, estados.ubica as enombreee,estados.nombre from estados inner join municipios on municipios.estado=estados.clave inner join localidades on localidades.MunicipioID=municipios.id inner join paraje_vivero on paraje_vivero.id_localidad=localidades.id where  paraje_vivero.id_paraje='$paraje'";
 	    $parajes = $conexion->query($strConsulta);
 	    //$parajes = mysql_query($strConsulta);
-	    $fila = mysqli_fetch_array($parajes);
+	    $fila = mysqli_fetch_array($parajes) ?? ['id'=>null,'id_paraje'=>null,'id_localidad'=>null,'id_cliente'=>null,'paraje'=>'','lat'=>null,'lng'=>null,'poligono'=>'','tenencia'=>'','superficie'=>'','docpro'=>'','referencia'=>'','usufruto'=>'','fecha'=>null,'nombrep'=>'','fecha_paraje'=>null,'rcampo'=>'','status'=>null,'foto1'=>'','foto2'=>'','tipo'=>'','constancia_vivero'=>'','status_predio'=>null,'constancia_extracciones'=>null,'enombreee'=>'','nombre'=>''];
 	    //Aqui termina
 
 
@@ -1038,9 +1053,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->Image("../" . $result['foto1'], 110, 125, 90, 90);
 	}
 
-	if (ob_get_level() > 0) {
-		ob_end_clean();
-	}
+	ob_end_clean();
 	//$pdf->Output("RegistroVivero".$paraje.".pdf",'D');
 
 	$conexion->close();

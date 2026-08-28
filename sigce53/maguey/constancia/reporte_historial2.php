@@ -7,6 +7,9 @@ include('../php/registro/conexion.php');
 $conexion->set_charset("utf8");
 header("Content-Type: text/html; charset=iso-8859-1 ");
 /**
+ * ============================================================================
+ *  CAPA DE COMPATIBILIDAD PHP 8.3 (no altera la logica ni el diseno del PDF)
+ * ============================================================================
  *  1) compat_utf8_decode() esta OBSOLETA desde PHP 8.2 (se elimina en PHP 9).
  *     compat_utf8_decode() reproduce EXACTAMENTE el mismo resultado
  *     (conversion UTF-8 -> ISO-8859-1) usando mb_convert_encoding(),
@@ -20,6 +23,7 @@ header("Content-Type: text/html; charset=iso-8859-1 ");
  *
  *  Ambas funciones se definen solo si no existen, para poder incluir
  *  este archivo mas de una vez sin provocar errores de redeclaracion.
+ * ============================================================================
  */
 if (!function_exists('compat_utf8_decode')) {
 	function compat_utf8_decode(?string $string): string
@@ -178,7 +182,7 @@ function Footer()
 	$paraje= $_GET['id'];
 	$strConsulta="select tipo from paraje where paraje.id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	$fila = mysqli_fetch_array($parajes) ?? ['tipo' => null];
 	$this->SetY(-15);
 	$this->SetFont('Helvetica','BI',7);
 	if($fila['tipo']=='1'){
@@ -199,7 +203,14 @@ function Footer()
 	
 
 	$parajes= $conexion->query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	// Consulta principal (cliente+paraje+constancia). Si $paraje no existe,
+	// se cubre con los mismos alias del SELECT para evitar Warnings.
+	$fila = mysqli_fetch_array($parajes) ?? [
+		'anio'=>'','contador'=>0,'domicilio'=>'','nombrep'=>'','id_paraje'=>null,
+		'no_cliente'=>'','regmaguey'=>'','constancia'=>'','tipo'=>'','parajes'=>'',
+		'clienten'=>'','calle'=>'','noexterior'=>'','nointerior'=>'','colonia'=>'',
+		'nombrem'=>'','nombree'=>'','telefono'=>'','correo'=>'','fecha1'=>null,'fecha2'=>null,
+	];
 	
 	if($fila['tipo']=='1'){
 	
@@ -294,7 +305,10 @@ function Footer()
 		
 
 	$ubicaciones= $conexion->query($Consulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 	if($fila['nombrep']==$fila['clienten'] or $fila['nombrep']==''){
 		
 		$pdf->Ln(7);
@@ -610,7 +624,7 @@ function Footer()
 	$strConsulta = "SELECT paraje.*, estados.ubica as enombreee,estados.nombre from estados inner join municipios on municipios.estado=estados.clave inner join localidades on localidades.MunicipioID=municipios.id inner join paraje on paraje.id_localidad=localidades.id where  paraje.id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
 	//$parajes = mysql_query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	$fila = mysqli_fetch_array($parajes) ?? ['id'=>null,'id_paraje'=>null,'id_localidad'=>null,'id_cliente'=>null,'paraje'=>'','lat'=>null,'lng'=>null,'poligono'=>'','tenencia'=>'','superficie'=>'','docpro'=>'','referencia'=>'','usufruto'=>'','fecha'=>null,'nombrep'=>'','fecha_paraje'=>null,'rcampo'=>'','status'=>null,'foto1'=>'','foto2'=>'','tipo'=>'','constancia_predio'=>null,'constancia_extracciones'=>null,'maguey_con_registro'=>null,'status_predio'=>null,'id_us'=>null,'fecharegistro'=>null,'numa'=>null,'servicio'=>null,'enombreee'=>'','nombre'=>''];
 	//Aqui termina
 	
 		$urlGoogle ="http://maps.googleapis.com/maps/api/staticmap?center=$coordenada1,$coordenada2&zoom=8&scale=false&size=600x300&maptype=hybrid&format=png&visual_refresh=true&markers=size:mid%7Ccolor:0xff0000%7Clabel:*%7C$coordenada1,$coordenada2";
@@ -732,7 +746,10 @@ $fecha2 = ucfirst($fechaa);
 		
 
 	$ubicaciones= $conexion->query($Consulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 	if($fila['nombrep']==$fila['clienten'] or $fila['nombrep']==''){
 		
 		$pdf->Ln(7);
@@ -885,7 +902,9 @@ $fecha2 = ucfirst($fechaa);
 	$pdf->Ln(5);
 	$consultandovive = "SELECT genespecie,fecha_siembra,foto1,foto2 from paraje inner join existenciaplanta on existenciaplanta.id_paraje=paraje.id_paraje inner join comun on comun.id_comun=existenciaplanta.id_comun inner join especie on especie.id_especie=comun.id_especie WHERE  paraje.id_paraje='$paraje'";	
 	$historialito= $conexion->query($consultandovive);
-	$result = mysqli_fetch_array($historialito);
+	$result = mysqli_fetch_array($historialito) ?? [
+		'genespecie'=>'','fecha_siembra'=>null,'foto1'=>'','foto2'=>'',
+	];
 		
 	$strConsulta = "SELECT paraje.id_paraje,origen, existenciaplanta.regmaguey, existenciaplanta.cantidadini,fecha_siembra,existenciaplanta.edad, comun.nombre,especie.genespecie,especie.variante
 	FROM existenciaplanta
@@ -971,7 +990,7 @@ $fecha2 = ucfirst($fechaa);
 	$strConsulta = "SELECT paraje.*,paraje.foto1,paraje.foto2, estados.ubica as enombreee,estados.nombre from estados inner join municipios on municipios.estado=estados.clave inner join localidades on localidades.MunicipioID=municipios.id inner join paraje on paraje.id_localidad=localidades.id where  paraje.id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
 	//$parajes = mysql_query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	$fila = mysqli_fetch_array($parajes) ?? ['id'=>null,'id_paraje'=>null,'id_localidad'=>null,'id_cliente'=>null,'paraje'=>'','lat'=>null,'lng'=>null,'poligono'=>'','tenencia'=>'','superficie'=>'','docpro'=>'','referencia'=>'','usufruto'=>'','fecha'=>null,'nombrep'=>'','fecha_paraje'=>null,'rcampo'=>'','status'=>null,'foto1'=>'','foto2'=>'','tipo'=>'','constancia_predio'=>null,'constancia_extracciones'=>null,'maguey_con_registro'=>null,'status_predio'=>null,'id_us'=>null,'fecharegistro'=>null,'numa'=>null,'servicio'=>null,'enombreee'=>'','nombre'=>''];
 	//Aqui termina
 	
 		$urlGoogle ="http://maps.googleapis.com/maps/api/staticmap?center=$coordenada1,$coordenada2&zoom=8&scale=false&size=600x300&maptype=hybrid&format=png&visual_refresh=true&markers=size:mid%7Ccolor:0xff0000%7Clabel:*%7C$coordenada1,$coordenada2";
@@ -1002,9 +1021,7 @@ $fecha2 = ucfirst($fechaa);
    $conexion->close();
    $conexion_remota->close();
 			
-	if (ob_get_level() > 0) {
-		ob_end_clean();
-	}
+			ob_end_clean();
    $pdf->Output("Registro".$paraje.".pdf",'D');
     
 ?>

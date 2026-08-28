@@ -11,6 +11,9 @@ $conexion->set_charset("utf8");
 header("Content-Type: text/html; charset=iso-8859-1 ");
 
 /**
+ * ============================================================================
+ *  CAPA DE COMPATIBILIDAD PHP 8.3 (no altera la logica ni el diseno del PDF)
+ * ============================================================================
  *  1) utf8_decode() esta OBSOLETA desde PHP 8.2 (se elimina en PHP 9).
  *     compat_utf8_decode() reproduce EXACTAMENTE el mismo resultado
  *     (conversion UTF-8 -> ISO-8859-1) usando mb_convert_encoding(),
@@ -24,6 +27,7 @@ header("Content-Type: text/html; charset=iso-8859-1 ");
  *
  *  Ambas funciones se definen solo si no existen, para poder incluir
  *  este archivo mas de una vez sin provocar errores de redeclaracion.
+ * ============================================================================
  */
 if (!function_exists('compat_utf8_decode')) {
 	function compat_utf8_decode(?string $string): string
@@ -82,9 +86,10 @@ var $aligns;
 
 		$this->oldx=0;
 		$this->oldy=0;
-		$this->AddFont('Calibri', '', 'CalibriRegular.json', __DIR__ . '/../../vendor/setasign/fpdf/makefont/');
-		$this->AddFont('Calibri-Bold', '', 'calibri-bold.json', __DIR__ . '/../../vendor/setasign/fpdf/makefont/');
-		$this->AddFont('Calibri-BoldItalic', '', 'calibri-bold-italic.json', __DIR__ . '/../../vendor/setasign/fpdf/makefont/');
+		$fontDir = __DIR__ . '/../../librerias/fpdf/font/json/';
+		$this->AddFont('Calibri', '', 'CalibriRegular.json', $fontDir);
+		$this->AddFont('Calibri-Bold', '', 'CalibriBold.json', $fontDir);
+		$this->AddFont('Calibri-BoldItalic', '', 'CalibriBoldItalic.json', $fontDir);
 				$this->fontlist=array("Calibri","Times","times","courier","helvetica","symbol");
 		$this->issetfont=false;
 		$this->issetcolor=false;
@@ -223,7 +228,10 @@ function Footer()
 	$paraje= $_GET['id'];
 	$strConsulta="select tipo from paraje where paraje.id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	// mysqli_fetch_array() devuelve null si no hay filas (p.ej. id_paraje
+	// inexistente). En PHP 8, acceder a una clave de un array null genera
+	// un Warning; se usa ?? para garantizar que $fila siempre sea un array.
+	$fila = mysqli_fetch_array($parajes) ?? ['tipo' => null];
 
 	//$this->SetFont('Helvetica','BI',7);
 	$this->SetFont('Calibri','',7);
@@ -297,7 +305,13 @@ function Footer()
 
 
 	$parajes= $conexion->query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	// Si $paraje no existe en la BD, mysqli_fetch_array() devuelve null;
+	// se cubre con los mismos nombres de columna del SELECT para que el
+	// resto del reporte pueda seguir leyendo $fila sin generar Warnings.
+	$fila = mysqli_fetch_array($parajes) ?? [
+		'anio'=>'','nombrep'=>'','id_paraje'=>null,'id_cliente'=>null,'regmaguey'=>'',
+		'constancia'=>'','tipo'=>'','parajes'=>'','fecha1'=>null,'fecha2'=>null,
+	];
 
 
 
@@ -320,8 +334,28 @@ function Footer()
 				  ) AS dt ON clientes.no_cliente = dt.no_cliente 
 				  where clientes.no_cliente='$cliente' and domicilio.estatus=1 ORDER BY domicilio.idDomicilio  LIMIT 1";
 
-	$clientes= $conexion->query($strCliente);
-	$filaClientes = mysqli_fetch_array($clientes);
+	// Se envuelve en try/catch: con mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT)
+	// activo (PHP 8.1+), un error SQL (p.ej. tabla inexistente) lanza una excepcion
+	// en vez de devolver false. El comportamiento original de este reporte ya
+	// contemplaba "sin correo/telefono" mostrando '---', asi que se preserva
+	// ese mismo resultado tambien cuando la consulta falla por completo.
+	try {
+		$clientes = $conexion->query($strCliente);
+		// mysqli_fetch_array() devuelve null si la consulta tuvo 0 filas
+		// (p.ej. cliente sin domicilio activo o sin correo principal).
+		$filaClientes = mysqli_fetch_array($clientes) ?? [
+			'contador' => 0, 'domicilio' => '', 'no_cliente' => $cliente,
+			'clienten' => '', 'calle' => '', 'noexterior' => '', 'nointerior' => '',
+			'colonia' => '', 'telefono' => '', 'correo' => '',
+		];
+	} catch (mysqli_sql_exception $e) {
+		error_log('reporte_historial.php: fallo consulta de contacto de cliente: ' . $e->getMessage());
+		$filaClientes = [
+			'contador' => 0, 'domicilio' => '', 'no_cliente' => $cliente,
+			'clienten' => '', 'calle' => '', 'noexterior' => '', 'nointerior' => '',
+			'colonia' => '', 'telefono' => '', 'correo' => '',
+		];
+	}
 
 
 	if($fila['tipo']=='1'){
@@ -458,7 +492,10 @@ function Footer()
 
 
 	$ubicaciones= $conexion->query($Consulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 	/*if($fila['nombrep']==$filaClientes['clienten'] or $fila['nombrep']==''){ MANITO ANALI*/
 	//if(true){
 
@@ -901,7 +938,8 @@ function Footer()
 	inner join paraje on paraje.id_localidad=localidades.id where  paraje.id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
 	//$parajes = mysql_query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	// paraje.* + enombreee/nombre: se cubre con defaults por si el id no existe.
+	$fila = mysqli_fetch_array($parajes) ?? ['id'=>null,'id_paraje'=>null,'id_localidad'=>null,'id_cliente'=>null,'paraje'=>'','lat'=>null,'lng'=>null,'poligono'=>'','tenencia'=>'','superficie'=>'','docpro'=>'','referencia'=>'','usufruto'=>'','fecha'=>null,'nombrep'=>'','fecha_paraje'=>null,'rcampo'=>'','status'=>null,'foto1'=>'','foto2'=>'','tipo'=>'','constancia_predio'=>null,'constancia_extracciones'=>null,'maguey_con_registro'=>null,'status_predio'=>null,'id_us'=>null,'fecharegistro'=>null,'numa'=>null,'servicio'=>null,'enombreee'=>'','nombre'=>''];
 	//Aqui termina
 
 		$urlGoogle ="http://maps.googleapis.com/maps/api/staticmap?key=AIzaSyCD3xqb8eMEVsAd4m9QnD7s1wOE9_bnALY&center=$coordenada1,$coordenada2&zoom=8&scale=false&size=600x300&maptype=hybrid&format=png&visual_refresh=true&markers=size:mid%7Ccolor:0xff0000%7Clabel:*%7C$coordenada1,$coordenada2";
@@ -1090,7 +1128,10 @@ $fecha2 = ucfirst($fechaa);
 
 
 	$ubicaciones= $conexion->query($Consulta);
-	$dato = mysqli_fetch_array($ubicaciones);
+	$dato = mysqli_fetch_array($ubicaciones) ?? [
+		'localidad'=>'','nombrem'=>'','nombree'=>'','paraje'=>'','referencia'=>'',
+		'lat'=>null,'lng'=>null,'superficie'=>'',
+	];
 	if($fila['nombrep']==$filaClientes['clienten'] or $fila['nombrep']==''){
 
 		$pdf->Ln(7);
@@ -1247,7 +1288,9 @@ $fecha2 = ucfirst($fechaa);
 	inner join comun on comun.id_comun=existenciaplanta.id_comun 
 	inner join especie on especie.id_especie=comun.id_especie WHERE  paraje.id_paraje='$paraje'";
 	$historialito= $conexion->query($consultandovive);
-	$result = mysqli_fetch_array($historialito);
+	$result = mysqli_fetch_array($historialito) ?? [
+		'genespecie'=>'','fecha_siembra'=>null,'foto1'=>'','foto2'=>'',
+	];
 
 	$strConsulta = "SELECT paraje.id_paraje,origen, existenciaplanta.regmaguey, existenciaplanta.cantidadini,fecha_siembra,existenciaplanta.edad, comun.nombre,especie.genespecie,especie.variante
 	FROM existenciaplanta
@@ -1337,7 +1380,8 @@ $fecha2 = ucfirst($fechaa);
 	where  paraje.id_paraje='$paraje'";
 	$parajes= $conexion->query($strConsulta);
 	//$parajes = mysql_query($strConsulta);
-	$fila = mysqli_fetch_array($parajes);
+	// paraje.* + enombreee/nombre: se cubre con defaults por si el id no existe.
+	$fila = mysqli_fetch_array($parajes) ?? ['id'=>null,'id_paraje'=>null,'id_localidad'=>null,'id_cliente'=>null,'paraje'=>'','lat'=>null,'lng'=>null,'poligono'=>'','tenencia'=>'','superficie'=>'','docpro'=>'','referencia'=>'','usufruto'=>'','fecha'=>null,'nombrep'=>'','fecha_paraje'=>null,'rcampo'=>'','status'=>null,'foto1'=>'','foto2'=>'','tipo'=>'','constancia_predio'=>null,'constancia_extracciones'=>null,'maguey_con_registro'=>null,'status_predio'=>null,'id_us'=>null,'fecharegistro'=>null,'numa'=>null,'servicio'=>null,'enombreee'=>'','nombre'=>''];
 	//Aqui termina
 
 		$urlGoogle ="http://maps.googleapis.com/maps/api/staticmap?key=AIzaSyCD3xqb8eMEVsAd4m9QnD7s1wOE9_bnALY&center=$coordenada1,$coordenada2&zoom=8&scale=false&size=600x300&maptype=hybrid&format=png&visual_refresh=true&markers=size:mid%7Ccolor:0xff0000%7Clabel:*%7C$coordenada1,$coordenada2";
