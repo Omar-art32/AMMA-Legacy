@@ -1,8 +1,8 @@
 <?php
-include('../../common/conexion.php');
+include(__DIR__ . '/../../common/conexion.php');
 
 //obtenemos los parametros de la busqueda
-$client=utf8_decode ($_POST['cliente']);
+$client=mb_convert_encoding ($_POST['cliente'], 'ISO-8859-1');
 $client=substr($client,0,5);
 $respuesta="";
 $new_ind="";
@@ -30,7 +30,7 @@ $result=$conexion->query($sql_bus);
 // Ahora comprobaremos que todo ha ido correctamente
 if($result==false)
 {
-  echo json_encode(array('status' => 'error','msj'=> 'Disculpe ha ocurrido un error, intente mas tarde'));
+  echo json_encode(['status' => 'error','msj'=> 'Disculpe ha ocurrido un error, intente mas tarde']);
 }
 else
 {
@@ -41,36 +41,28 @@ else
 	  while($row=$result->fetch_row())
 	{
 	  $cve=trim($row[0]);
-	  $marca=utf8_encode(trim($row[1]));
+	  $marca=mb_convert_encoding(trim($row[1]), 'UTF-8', 'ISO-8859-1');
 	  $serie=trim($row[2]);
 	  $f_ini=trim($row[3]);
 	  $f_fin=trim($row[4]);
 	  $existencia=trim($row[5]);
-	  $edo=utf8_encode(trim($row[6]));
+	  $edo=mb_convert_encoding(trim($row[6]), 'UTF-8', 'ISO-8859-1');
 	  $new_ind=$cve.$edo;
 
 	  switch($row[7])
 	  {
 		case 0:
-			{
-				$tipo_mez="";
-				break;
-			}
+            $tipo_mez="";
+            break;
 			case 1:
-			{
-				$tipo_mez="MEZCAL";
-				break;
-			}
+                $tipo_mez="MEZCAL";
+                break;
 			case 2:
-			{
-				$tipo_mez="ARTESANAL";
-				break;
-			}
+                $tipo_mez="ARTESANAL";
+                break;
 			case 3:
-			{
-				$tipo_mez="ANCESTRAL";
-				break;
-			}
+                $tipo_mez="ANCESTRAL";
+                break;
 	   }
 
 	  if($existencia>0)
@@ -82,9 +74,9 @@ else
 		 $folios="<font color='#AF0707'><b>Sin existencias</b></font>";
 	  }
 
-	  if($m!=$cve){
+	  if($m !== $cve){
 
-	  	if($x==0)
+	  	if($x === 0)
 		{
 			 $color ="success";
 			 $x=1;
@@ -96,7 +88,7 @@ else
 			 $x=0;
 		}
 
-	  	if($aux!=1)$respuesta .="</ul></div></div></div>";
+	  	if($aux !== 1)$respuesta .="</ul></div></div></div>";
 
 		$respuesta.="<div class='col-md-3 text-center'></div>";
 
@@ -117,7 +109,7 @@ else
 	  }
 
 
-	  if($e!=$edo){
+	  if($e !== $edo){
 
 	  	$respuesta.="   <div class='panel-body text-center'>
                             <p><strong>{$edo}</strong></p>
@@ -138,11 +130,11 @@ else
 
 	 $respuesta.="</ul></div></div></div></div></div></section>";
 
-	echo json_encode(array('status' => 'OK','msj'=> $respuesta));
+	echo json_encode(['status' => 'OK','msj'=> $respuesta]);
   }
   else
   {
-	echo json_encode(array('status' => 'error','msj'=> 'No se tienen registros de hologramas de esta MARCA'));
+	echo json_encode(['status' => 'error','msj'=> 'No se tienen registros de hologramas de esta MARCA']);
   }
 }
 

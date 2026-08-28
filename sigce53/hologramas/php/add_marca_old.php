@@ -1,13 +1,13 @@
 <?php
-include('../../common/conexion.php');
-$client=utf8_decode ($_POST['nc_marca']);
+include(__DIR__ . '/../../common/conexion.php');
+$client=mb_convert_encoding ($_POST['nc_marca'], 'ISO-8859-1');
 $client=substr($client,0,4);
 //$cod_c=substr($client,0,4);
-$letra=utf8_decode ($_POST['letra']);
-$marca=utf8_decode ($_POST['marca_new']);
+$letra=mb_convert_encoding ($_POST['letra'], 'ISO-8859-1');
+$marca=mb_convert_encoding ($_POST['marca_new'], 'ISO-8859-1');
 $marca=strtoupper($marca);
 $str_ins="";
-$respuesta=array();
+$respuesta=[];
 //revisar si la marca no existe
 $sql_rev="select * from marcas where no_cliente='{$client}' and cve_marca='{$letra}'";
 $revisa_ex=$conexion->query($sql_rev);
@@ -19,11 +19,11 @@ if($existe_m==0)
 	$inserta=$conexion->query($str_ins);		 
 	if($inserta==false)
 	{ 
-	 $respuesta=array('status' => 'Error','msj'=> 'Error agregar marca  -LOCAL-','remoto'=> '','msj_remoto'=> '','upmarc'=> '','msj_upmarc'=> '');
+	 $respuesta=['status' => 'Error','msj'=> 'Error agregar marca  -LOCAL-','remoto'=> '','msj_remoto'=> '','upmarc'=> '','msj_upmarc'=> ''];
 	} 
 	else
 	{
-	 $respuesta=array('status' => 'OK','msj'=> 'Marca Agregada -LOCAL-','remoto'=> '','msj_remoto'=> '','upmarc'=> '','msj_upmarc'=> '');
+	 $respuesta=['status' => 'OK','msj'=> 'Marca Agregada -LOCAL-','remoto'=> '','msj_remoto'=> '','upmarc'=> '','msj_upmarc'=> ''];
 	}
 		
 	//------------GUARDAR EN LA BD REMOTA------------
@@ -68,7 +68,7 @@ if($existe_m==0)
 }
 else
 {
-$respuesta=array('status' => 'Error','msj'=> 'Esta marca ya existe','remoto'=> '','msj_remoto'=> '','upmarc'=> '','msj_upmarc'=> '');	
+$respuesta=['status' => 'Error','msj'=> 'Esta marca ya existe','remoto'=> '','msj_remoto'=> '','upmarc'=> '','msj_upmarc'=> ''];	
 }
 echo json_encode($respuesta);
 ?>

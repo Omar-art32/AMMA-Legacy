@@ -5,9 +5,9 @@
 	header('Content-Type: application/json; charset=utf-8');
 try {
 	
-	$estados = array();
+	$estados = [];
 	$edo="";
-	include("../../common/conexion.php");
+	include(__DIR__ . "/../../common/conexion.php");
 
 	$no_cliente = $_POST["cliente"] ?? '';
     $marca      = $_POST["marca"] ?? '';
@@ -37,7 +37,7 @@ try {
 		  }
 		  // Sustitución de utf8_encode por mb_convert_encoding
           $edo_utf8 = mb_convert_encoding($edo, 'UTF-8', 'ISO-8859-1');
-		  array_push($estados, array("nombre" => $edo_utf8));
+		  $estados[] = ["nombre" => $edo_utf8];
 		}
 	}
 	if($num_res==1&&$edo=="NA")
@@ -46,10 +46,10 @@ try {
 	}
 	$conexion->close();
 
-	echo json_encode(array("status" => "correcto", "msj" => $sql, "estados" => $estados,"num_res"=>$num_res));
+	echo json_encode(["status" => "correcto", "msj" => $sql, "estados" => $estados,"num_res"=>$num_res]);
 }
 catch (Exception $e) {
-	echo json_encode(array("status" => "error", "msj" => "Error en la base de datos: " . $e->getMessage()));
+	echo json_encode(["status" => "error", "msj" => "Error en la base de datos: " . $e->getMessage()]);
 	$conexion->close();
 }	 
 ?>

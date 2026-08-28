@@ -56,22 +56,13 @@ try {
             $existencia = trim((string)$row[5]);
             $edo   = htmlspecialchars(trim((string)($row[6] ?? '')), ENT_QUOTES, 'UTF-8');
 
-            switch ($row[7]) {
-                case 0:
-                    $tipo_mez = '';
-                    break;
-                case 1:
-                    $tipo_mez = 'MEZCAL';
-                    break;
-                case 2:
-                    $tipo_mez = 'ARTESANAL';
-                    break;
-                case 3:
-                    $tipo_mez = 'ANCESTRAL';
-                    break;
-                default:
-                    $tipo_mez = '';
-            }
+            $tipo_mez = match ($row[7]) {
+                0 => '',
+                1 => 'MEZCAL',
+                2 => 'ARTESANAL',
+                3 => 'ANCESTRAL',
+                default => '',
+            };
 
             if ($existencia > 0) {
                 $clientesel = $client;

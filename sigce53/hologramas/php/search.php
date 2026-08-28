@@ -20,7 +20,7 @@ if (!isset($_GET['term'])) {
     exit;
 }
 
-$busca = '%' . (string)$_GET['term'] . '%';
+$busca = '%' . $_GET['term'] . '%';
 $return_arr = [];
 
 try {
