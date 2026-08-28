@@ -272,11 +272,10 @@ function estadisticas1() {
 function estadisticas2() {  
   try {
     include(__DIR__ . '/../../../common/conexion.php');
-	  $conexion->set_charset("utf8");
-    $tipo        = $_GET['tipo'];
-    //$anio        = ($_GET['anio'] > 0 || $_GET['anio'] === "TODOS") ? $_GET['anio'] : 0;
-    $limit        = isset($_GET['limit']) ? " LIMIT " . $_GET['limit'] : "";
-    $offset       = isset($_GET['offset']) ? " OFFSET " . $_GET['offset'] : "";
+    $conexion->set_charset("utf8");
+    $tipo        = $_GET['tipo'] ?? '';
+    $limit       = isset($_GET['limit']) ? " LIMIT " . $_GET['limit'] : "";
+    $offset      = isset($_GET['offset']) ? " OFFSET " . $_GET['offset'] : "";
 
     $txtcond = '';
     $groupby = ' no_control ';
@@ -298,7 +297,9 @@ function estadisticas2() {
       }
     }
 
-    if($_GET['anio'] >= 0) {
+    $getAnio = $_GET['anio'] ?? -1;
+
+    if($getAnio >= 0) {
       $sqltxt = "
         SELECT 
             YEAR(fecha_concepto) AS year,
@@ -323,7 +324,6 @@ function estadisticas2() {
             year DESC, total_sales DESC
         LIMIT 10                      
       ";
-      //echo $sqltxt;
     } else {
       $sqltxt = "
       SELECT  YEAR(fecha_concepto) AS year,
@@ -335,26 +335,37 @@ function estadisticas2() {
           id_edo_cuenta IS NOT NULL  AND no_control NOT IN ('C9999','C9998') AND fecha_concepto != '0000-00-00' 
         GROUP BY $groupby 
         ORDER BY $orderby
-             LIMIT 10 ";
+            LIMIT 10 ";
     }
     $sql = $conexion->prepare($sqltxt);
     if (!$sql) throw new Exception("Ocurrio un error al obtener la información (ERROR:01) $conexion->error");
     if (!$sql->execute()) throw new Exception("Ocurrio un error al obtener la información (ERROR:02) $conexion->error");
     $sql->store_result();
+    
+    $_ANIO = null;
+    $_MES = null;
+    $_NO_CONTROL = null;
+    $_MONTO = null;
+    
     $sql->bind_result($_ANIO, $_MES, $_NO_CONTROL, $_MONTO);
-    $count = 0;
+    
+    $arrayGrafica = [];
+    $arrCliente = [];
     $arrMes = [1=>"Ene", 2=>"Feb", 3=>"Mar", 4=>"Abr", 5=>"May", 6=>"Jun",
                   7=>"Jul", 8=>"Ago", 9=>"Sep", 10=>"Oct", 11=>"Nov", 12=>"Dic" ];
+    
     while($sql->fetch()) {
-      $arrayGrafica[$_ANIO]["anio"] = $_ANIO;
-      $arrayGrafica[$_ANIO][$_NO_CONTROL] = $_MONTO;
-      $arrCliente[] = $_NO_CONTROL;
+      $keyAnio = $_ANIO ?? '';
+      $keyNoControl = $_NO_CONTROL ?? '';
+      
+      $arrayGrafica[$keyAnio]["anio"] = $keyAnio;
+      $arrayGrafica[$keyAnio][$keyNoControl] = $_MONTO;
+      $arrCliente[] = $keyNoControl;
     }
     
-    //$condAnio = ($_GET['anio'] > 0) ? " AND YEAR(ecs.fecha_concepto) = " . $_GET['anio'] : "AND YEAR(ecs.fecha_concepto) = " . date('Y');
-    $orderAnio = ($_GET['anio'] > 0) ? " total_sales DESC " : " year DESC, total_sales DESC ";
+    $orderAnio = ($getAnio > 0) ? " total_sales DESC " : " year DESC, total_sales DESC ";
 
-    if($_GET['anio'] >= 0) {
+    if($getAnio >= 0) {
       $sqltxt = "
         SELECT 
             c.nombre,
@@ -406,7 +417,7 @@ function estadisticas2() {
             GROUP BY $groupby 
         ORDER BY $orderby ";
     }
-    //echo $sqltxt;
+    
     $sql = $conexion->prepare("SELECT COUNT(*) FROM ($sqltxt) AS TABLA ");
     if (!$sql) throw new Exception("Ocurrio un error al obtener la información (ERROR:03) $conexion->error");
     if (!$sql->execute()) throw new Exception("Ocurrio un error al obtener la información (ERROR:04) $conexion->error");
@@ -419,10 +430,20 @@ function estadisticas2() {
     if (!$sql) throw new Exception("Ocurrio un error al obtener la información (ERROR:05) $conexion->error");
     if (!$sql->execute()) throw new Exception("Ocurrio un error al obtener la información (ERROR:06) $conexion->error");
     $sql->store_result();
+    
+    $_NOMBRE = null;
+    $_ANIO = null;
+    $_MES = null;
+    $_NO_CONTROL = null;
+    $_MONTO = null;
+    $_TIPO = null;
+    
     $sql->bind_result($_NOMBRE, $_ANIO, $_MES, $_NO_CONTROL, $_MONTO, $_TIPO);
+    
+    $array = [];
     $count = 0;
     while($sql->fetch()) {
-        $array[$count]["nombre"]  = $_NOMBRE;
+        $array[$count]["nombre"]   = $_NOMBRE;
         $array[$count]["nocontrol"] = $_NO_CONTROL;
         $array[$count]["anio"] = $_ANIO;
         $array[$count]["monto"]   = $_MONTO;
@@ -431,13 +452,16 @@ function estadisticas2() {
     }
     $sql->close();
     
-    $json["total"]  = $numRegistros;
-    $json["rows"]   = $array;
+    $json = [];
+    $json["total"]   = $numRegistros;
+    $json["rows"]    = $array;
     $json["grafica"] = $arrayGrafica;
     $json["clientes"] = $arrCliente;
     echo json_encode($json);
   } catch (\Exception $e) {
-    $conexion->close();
+    if (isset($conexion) && $conexion instanceof \mysqli) {
+        $conexion->close();
+    }
     echo $e->getMessage();
     header('HTTP/1.1 500 Internal Server Booboo');
     header('Content-Type: application/json; charset=UTF-8');
