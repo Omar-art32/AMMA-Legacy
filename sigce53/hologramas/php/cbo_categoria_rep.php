@@ -1,6 +1,6 @@
 <?php
-include('../../common/conexion.php');
-$client=utf8_decode ($_POST['cliente']);
+include(__DIR__ . '/../../common/conexion.php');
+$client=mb_convert_encoding ($_POST['cliente'], 'ISO-8859-1');
 //$client=substr($client,0,5);
 //$usr=$_POST['user'];
 //$fecha = date("Y-m-d H:i:s" );
@@ -26,25 +26,17 @@ else
 	  switch($tipo)
 		{
 				case 0:
-				{
-					$tipo_mez="N/A";
-					break;
-				}
+                    $tipo_mez="N/A";
+                    break;
 				case 1:
-				{
-					$tipo_mez="MEZCAL";
-					break;
-				}
+                    $tipo_mez="MEZCAL";
+                    break;
 				case 2:
-				{
-					$tipo_mez="ARTESANAL";
-					break;
-				}
+                    $tipo_mez="ARTESANAL";
+                    break;
 				case 3:
-				{
-					$tipo_mez="ANCESTRAL";
-					break;
-				}
+                    $tipo_mez="ANCESTRAL";
+                    break;
 				
 		}
 
@@ -57,12 +49,12 @@ else
 	  }
 	}
 	$cbo.="</select>";
-	echo json_encode(array('status' => 'correcto','cbo'=> $cbo, 'sql'=>$sql));
+	echo json_encode(['status' => 'correcto','cbo'=> $cbo, 'sql'=>$sql]);
   }
   else
   {
 	  $msj="<font color='#990000'>Sin Registros&nbsp;&nbsp;</font>";
-	echo json_encode(array('status' => 'error','msj'=> $msj));
+	echo json_encode(['status' => 'error','msj'=> $msj]);
   }
 }		 
 
