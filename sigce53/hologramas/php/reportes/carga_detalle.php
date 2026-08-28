@@ -1,8 +1,8 @@
 <?php
    	$clave="";
-    $respuesta=array();
+    $respuesta=[];
     // Se crea la conexión a la base de datos
-    include('../../../common/conexion.php');
+    include(__DIR__ . '/../../../common/conexion.php');
 	
   
 		$clave=$_POST['clave'];
@@ -13,7 +13,7 @@
      while( $fila = $result->fetch_assoc() ) {
 		
 		$recibo='AR'.str_pad($fila["id_recibo"],4,'0',STR_PAD_LEFT).'/'.$fila["anio_rcbo"];
-		echo json_encode(array('status' => 'OK','id_recibo'=> $fila["id_recibo"],'id_salidas'=> $fila["id_salidas"],'anio_recibo'=> $fila["anio_rcbo"],'no_cliente'=> $fila["no_cliente"],'cve_marca'=> $fila["cve"],'marca'=> utf8_encode($fila["marca"]),'serie'=> $fila["serie"],'solicitud'=> $fila["solicitud"],'fecha_e'=> $fila["fecha_entr"],'destino'=> $fila["destino"],'fi1'=> $fila["fi1"],'ff1'=> $fila["ff1"],'se1'=> $fila["se1"]));
+		echo json_encode(['status' => 'OK','id_recibo'=> $fila["id_recibo"],'id_salidas'=> $fila["id_salidas"],'anio_recibo'=> $fila["anio_rcbo"],'no_cliente'=> $fila["no_cliente"],'cve_marca'=> $fila["cve"],'marca'=> mb_convert_encoding($fila["marca"], 'UTF-8', 'ISO-8859-1'),'serie'=> $fila["serie"],'solicitud'=> $fila["solicitud"],'fecha_e'=> $fila["fecha_entr"],'destino'=> $fila["destino"],'fi1'=> $fila["fi1"],'ff1'=> $fila["ff1"],'se1'=> $fila["se1"]]);
 		
     }
 	// La respuesta se regresa como json
