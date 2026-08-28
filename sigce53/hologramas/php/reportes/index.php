@@ -11,7 +11,7 @@ if (isset($_GET["action"]) && !empty($_GET["action"])) {
 
 function acumulado() {
   try {
-    include('../../../common/conexion.php');
+    include(__DIR__ . '/../../../common/conexion.php');
 	  $conexion->set_charset("utf8");
     $sqltxt = "
       SELECT 
@@ -146,7 +146,7 @@ function acumulado() {
     $sql->fetch();
     $sql->close();
 
-    $_SALDO_DEUDOR = $_SALDO_DEUDOR - $_SALDO_PAGADO;
+    $_SALDO_DEUDOR -= $_SALDO_PAGADO;
     
     $json["acumulado"]  = "$ ". number_format($_TOTAL, 2);
     $json["total22"]  = "$ ". number_format($_TOTAL22, 2);
@@ -173,7 +173,7 @@ function acumulado() {
 
 function estadisticas1() {  
   try {
-    include('../../../common/conexion.php');
+    include(__DIR__ . '/../../../common/conexion.php');
 	  $conexion->set_charset("utf8");
     $tipo        = $_GET['tipo'];
     $limit        = isset($_GET['limit']) ? " LIMIT " . $_GET['limit'] : "";
@@ -199,8 +199,8 @@ function estadisticas1() {
     $sql->store_result();
     $sql->bind_result($_MES, $_ANIO, $_MONTO);
     $count = 0;
-    $arrMes = array(1=>"Ene", 2=>"Feb", 3=>"Mar", 4=>"Abr", 5=>"May", 6=>"Jun",
-                  7=>"Jul", 8=>"Ago", 9=>"Sep", 10=>"Oct", 11=>"Nov", 12=>"Dic" );
+    $arrMes = [1=>"Ene", 2=>"Feb", 3=>"Mar", 4=>"Abr", 5=>"May", 6=>"Jun",
+                  7=>"Jul", 8=>"Ago", 9=>"Sep", 10=>"Oct", 11=>"Nov", 12=>"Dic" ];
     while($sql->fetch()) {
       $arrayGrafica[$_MES]["mes"] = $_MES;
       $arrayGrafica[$_MES]["nMes"] = $arrMes[$_MES];
@@ -271,7 +271,7 @@ function estadisticas1() {
 
 function estadisticas2() {  
   try {
-    include('../../../common/conexion.php');
+    include(__DIR__ . '/../../../common/conexion.php');
 	  $conexion->set_charset("utf8");
     $tipo        = $_GET['tipo'];
     //$anio        = ($_GET['anio'] > 0 || $_GET['anio'] === "TODOS") ? $_GET['anio'] : 0;
@@ -343,8 +343,8 @@ function estadisticas2() {
     $sql->store_result();
     $sql->bind_result($_ANIO, $_MES, $_NO_CONTROL, $_MONTO);
     $count = 0;
-    $arrMes = array(1=>"Ene", 2=>"Feb", 3=>"Mar", 4=>"Abr", 5=>"May", 6=>"Jun",
-                  7=>"Jul", 8=>"Ago", 9=>"Sep", 10=>"Oct", 11=>"Nov", 12=>"Dic" );
+    $arrMes = [1=>"Ene", 2=>"Feb", 3=>"Mar", 4=>"Abr", 5=>"May", 6=>"Jun",
+                  7=>"Jul", 8=>"Ago", 9=>"Sep", 10=>"Oct", 11=>"Nov", 12=>"Dic" ];
     while($sql->fetch()) {
       $arrayGrafica[$_ANIO]["anio"] = $_ANIO;
       $arrayGrafica[$_ANIO][$_NO_CONTROL] = $_MONTO;
@@ -447,7 +447,7 @@ function estadisticas2() {
 
 function estadisticas3() {  
   try {
-    include('../../../common/conexion.php');
+    include(__DIR__ . '/../../../common/conexion.php');
 	  $conexion->set_charset("utf8");
     //$conexion->autocommit(FALSE);
     $tipo        = $_GET['tipo'];
