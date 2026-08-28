@@ -574,7 +574,8 @@ $y=42;
       }
 //$file_name = 'rpt_pdf.pdf';	
 $pdf->Output('../../tmp_pdf/'.$file_name, 'F');
-$dir_file="http://".$svr_dir."/hologramas/tmp_pdf/".$file_name;
+/** @var string $svr_dir */
+$dir_file = "http://" . $svr_dir . "/hologramas/tmp_pdf/" . $file_name;
 echo json_encode(['status' => 'correcto','msj'=>$dir_file]);
 }//FIN ISSET CLIENTE
 else
