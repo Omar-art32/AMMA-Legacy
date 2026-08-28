@@ -22,9 +22,9 @@ function is_ajax()
 
 function registrarAcceso()
 {
-    $clvuser = $_POST["clvuser"];
-    $modulo = $_POST["modulo"];
-    $seccion = $_POST["seccion"];
+    $clvuser = $_POST["clvuser"] ?? '';
+    $modulo = $_POST["modulo"] ?? '';
+    $seccion = $_POST["seccion"] ?? '';
 
     try
     {
@@ -55,7 +55,7 @@ function registrarAcceso()
 function verificarAcceso()
 {
 
-    $clvuser = $_POST["clvuser"];
+    $clvuser = $_POST["clvuser"] ?? '';
 
     try
     {
@@ -67,7 +67,7 @@ function verificarAcceso()
         $horaActual = date("H:i:s", $time);
         $dia = date("l", $time);
 
-        $sql = "SELECT 	
+        $sql = "SELECT
         a_usuarios.horaInicial_l_v,
         a_usuarios.horaFinal_l_v,
         a_usuarios.horaInicial_s,
@@ -85,25 +85,25 @@ function verificarAcceso()
         }
 
         $ps->bind_result(
-            $horaInicial_l_v, 
-            $horaFinal_l_v, 
-            $horaInicial_s, 
+            $horaInicial_l_v,
+            $horaFinal_l_v,
+            $horaInicial_s,
             $horaFinal_s,
-            $horaInicial_d, 
-            $horaFinal_d,  
+            $horaInicial_d,
+            $horaFinal_d,
             $fines_semana
         );
         $ps->store_result();
         $num_rows = $ps->num_rows;
         $ps->fetch();
         $ps->close();
-        
+
         if ($num_rows > 0) {
 
             if(
-                ($dia == "Monday" || $dia == "Tuesday" || $dia == "Wednesday" || $dia == "Thursday" || $dia == "Friday") && ($horaActual >= $horaInicial_l_v && $horaActual <= $horaFinal_l_v) || 
-                ($dia == "Saturday") && ( ($fines_semana == 1) && $horaActual >= $horaInicial_s && $horaActual <= $horaFinal_s) || 
-                ($dia == "Sunday") && ( ($fines_semana == 1) && $horaActual >= $horaInicial_d && $horaActual <= $horaFinal_d) 
+                ($dia == "Monday" || $dia == "Tuesday" || $dia == "Wednesday" || $dia == "Thursday" || $dia == "Friday") && ($horaActual >= $horaInicial_l_v && $horaActual <= $horaFinal_l_v) ||
+                ($dia == "Saturday") && ( ($fines_semana == 1) && $horaActual >= $horaInicial_s && $horaActual <= $horaFinal_s) ||
+                ($dia == "Sunday") && ( ($fines_semana == 1) && $horaActual >= $horaInicial_d && $horaActual <= $horaFinal_d)
             ){
 
                 if($dia == "Monday" || $dia == "Tuesday" || $dia == "Wednesday" || $dia == "Thursday" || $dia == "Friday"){
@@ -131,7 +131,7 @@ function verificarAcceso()
 
                 echo json_encode(array("status" => "fuera", "msj" => "Fuera de horario."));
             }
-            
+
 
         } else {
             echo json_encode(array("status" => "fuera", "msj" => "Fuera de horario."));

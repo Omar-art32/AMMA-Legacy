@@ -1,33 +1,33 @@
 <?php
-    declare(strict_types=1);
+declare(strict_types=1);
 
-    /*
-     * PHP 8.3:
-     *  - session_set_cookie_params() DEBE ir antes de session_start()
-     *    (después de iniciada la sesión, en 8.x lanza warning y no aplica).
-     *  - Se elimina $_SERVER["HTTP_HOST"] como dominio de cookie
-     *    (viene del cliente: inyección de encabezado Host). Con '' PHP usa
-     *    el host actual, que es el comportamiento deseado.
-     *  - $_GET['d_s'] sin isset en 8.x genera "Undefined array key".
-     */
-    session_set_cookie_params([
-        'lifetime' => 0,
-        'path'     => '/',
-        'domain'   => '',
-        'secure'   => isset($_SERVER['HTTPS']),
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
-    session_start();
+require_once __DIR__ . '/../common/cfg_server.php';
 
-    require_once __DIR__ . '/../common/cfg_server.php';
+/*
+ * PHP 8.3:
+ * - session_set_cookie_params() debe ejecutarse antes de session_start().
+ * - Se evita utilizar HTTP_HOST como dominio de la cookie.
+ * - Se utilizan opciones de seguridad para la cookie de sesión.
+ * - Se evita acceder directamente a $_GET['d_s'] cuando no existe.
+ */
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'domain'   => '',
+    'secure'   => ($protocolo_actual === 'https:'),
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 
-    $d_s = $_GET['d_s'] ?? '';
+session_start();
 
-    if ($d_s !== ''
-        && isset($_SESSION[$d_s]['seccion_4_4'])
-        && $_SESSION[$d_s]['seccion_4_4'] === 'logged')
-    {
+$d_s = $_GET['d_s'] ?? '';
+
+if (
+    $d_s !== ''
+    && isset($_SESSION[$d_s]['seccion_4_4'])
+    && $_SESSION[$d_s]['seccion_4_4'] === 'logged'
+) {
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -449,12 +449,11 @@
 </html>
 
 <?php
-  }
-  else
-  {
-    // exit obligatorio: sin él, el script continúa ejecutándose tras el header
-    $esquema = isset($_SERVER['HTTPS']) ? 'https' : 'http';
-    header('Location: ' . $esquema . '://' . $svr_dir . '/sigce/acceso/login.php');
+  } else {
+    header(
+        'Location: ' . $protocolo_actual . '//' .
+        $svr_dir . '/acceso/login.php'
+    );
     exit;
-  }
+}
 ?>

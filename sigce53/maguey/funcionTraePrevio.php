@@ -1,87 +1,72 @@
 <?php
-	/*include ("common/conexion.php");
-	include('php/registro/conexion_remota.php');*/
-	include("../common/conexion.php");
+/**
+ * funcionTraePrevio.php — PHP 8.3
+ * Lista de predios con constancias de predio. JSON {data: [...]}.
+ *
+ * Cambios vs 5.6:
+ *  - N+1 eliminada (nombre del cliente por JOIN)
+ *  - JSON manual → json_encode
+ *  - Conflicto validado con regex, WHERE corregido
+ *  - conexion_remota eliminada (comentada en el original)
+ */
+declare(strict_types=1);
 
-	$conexion->set_charset("utf8");
-	//$conexion_remota->set_charset("utf8");
-	/*$consulta = "SELECT paraje.id_paraje,no_cliente,nombre,constancia_predio FROM clientes INNER JOIN paraje ON id_cliente = no_cliente INNER JOIN cextracciones ON cextracciones.id_paraje = paraje.id_paraje WHERE paraje.tipo = 1 GROUP BY paraje.id_paraje";*/
+require_once __DIR__ . '/../common/conexion.php';
 
-	$idus = (isset($_POST['idus']))?$_POST['idus']:0;
-    // ---------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------
-    $sql_conflicto = "";
-    if($idus > 0 ){
-        $usuario_solicita = $_POST['idus'];
+header('Content-Type: application/json; charset=utf-8');
+ini_set('display_errors', '0');
 
-        $conflicto_intereses = $conexion->prepare("SELECT getConflictoIntereses(?)");
-        if (!$conflicto_intereses) 
-            throw new Exception("ERROR AL CONSULTAR CONFLICTO (ERR:001)");
-        $conflicto_intereses->bind_param("i", $usuario_solicita);
-        if (!$conflicto_intereses->execute()) 
-            throw new Exception("ERROR AL CONSULTAR CONFLICTO (ERR:002)");
-        $conflicto_intereses->store_result();
-        $conflicto_intereses->bind_result($clientes_conflicto);
-        $conflicto_intereses->fetch();
-        $conflicto_intereses->close();
+$idus = (int)($_POST['idus'] ?? 0);
 
-        /**MODIFICAR CONSULTA DEACUERDO A LAS NECECIDADES 
-         * LA VARIABLE $clientes_conflicto TRAE LOS CLIENTES EN EL SIGUIENTE FORMATO 'C9999','C9998'
-        */
-        /*if($usuario_solicita == 1)
-            $clientes_conflicto = "'C9999','C9998','C0001','C0003','C0249'"; */
-
-        $sql_conflicto = ($clientes_conflicto != "") ? " WHERE (id_cliente NOT IN ({$clientes_conflicto}) ) " : "";
+try {
+    $sql_conflicto = '';
+    if ($idus > 0) {
+        $stmt = $conexion->prepare('SELECT getConflictoIntereses(?)');
+        $stmt->bind_param('i', $idus);
+        $stmt->execute();
+        $stmt->bind_result($clientes_conflicto);
+        $stmt->fetch();
+        $stmt->close();
+        if ($clientes_conflicto !== null && $clientes_conflicto !== ''
+            && preg_match("/^'[A-Za-z0-9]+'(,'[A-Za-z0-9]+')*$/", $clientes_conflicto)) {
+            $sql_conflicto = " AND p.id_cliente NOT IN ({$clientes_conflicto}) ";
+        }
     }
-    // ---------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------
 
+    $consulta = "SELECT p.id, p.id_cliente, p.id_paraje, p.constancia_predio,
+                        c.no_cliente, c.nombre AS nombreCliente
+                 FROM paraje p
+                 INNER JOIN constancias co ON p.id_paraje = co.id_paraje COLLATE utf8_general_ci
+                 LEFT JOIN clientes c ON c.no_cliente = p.id_cliente
+                 WHERE 1=1 {$sql_conflicto}
+                 GROUP BY p.id_paraje
+                 ORDER BY p.id ASC";
+    $result = $conexion->query($consulta);
 
-	$consulta="SELECT paraje.id, paraje.id_cliente,paraje.id_paraje,constancia_predio  
-	from  paraje 
- 	inner join constancias on (paraje.id_paraje=constancias.id_paraje  COLLATE utf8_general_ci) 
- 	$sql_conflicto 
- 	group by paraje.id_paraje 
-	order by paraje.id ASC";
+    $data = [];
+    while ($row = $result->fetch_assoc()) {
+        $idp = htmlspecialchars($row['id_paraje'] ?? '', ENT_QUOTES);
 
+        $constancias = '';
+        if (($row['constancia_predio'] ?? '') !== '') {
+            $archivo = htmlspecialchars($row['constancia_predio'], ENT_QUOTES);
+            $constancias = '<div class="col-md-4"><a href="constancia/pdfConstanciaPredio/' . $archivo . '" target="_blank"><img width="35px" src="images/pdf.svg"></a></div>';
+        }
+        $constancias .= '<div id="items_en_uso_predio" class="col-md-4"><a href="#" id="paraje_' . $idp . '"><img width="35px" src="images/exchange.svg"></a></div>';
 
-	$registro=$conexion->query($consulta);
-	$tabla = "";
-	foreach ($registro as $row){
+        $data[] = [
+            'id'          => $row['id'],
+            'paraje'      => $row['id_paraje'],
+            'cliente'     => $row['no_cliente'] ?? '',
+            'nombre'      => $row['nombreCliente'] ?? '',
+            'constancias' => $constancias,
+        ];
+    }
 
-		$no_cliente="";
-		$nombreCliente="";
-
-
-		if($row['id_cliente']!="") {
-
-			$cliente=$row['id_cliente'];
-		    $strCliente = "SELECT clientes.no_cliente,clientes.nombre
-						   from clientes 
-						   where clientes.no_cliente='$cliente'";
-					   
-		   	$clientes= $conexion->query($strCliente);
-		   	$filaClientes = mysqli_fetch_array($clientes);
-
-		   	$no_cliente=$filaClientes['no_cliente'];
-		   	$nombreCliente=$filaClientes['nombre'];
-	 	}
-
-
-		$constancias = ($row["constancia_predio"]!="")?'<div class=\"col-md-4\"> <a href=\"constancia/pdfConstanciaPredio/'.$row["constancia_predio"].'\" target=\"_blank\" ><img width=\"35px\" src=\"images/pdf.svg\"></a></div>':'';
-		$constancias .= '<div id=\"items_en_uso_predio\" class=\"col-md-4\"> <a href=\"#\" id=\"paraje_'.$row["id_paraje"].'\"><img width=\"35px\" src=\"images/exchange.svg\"></a></div>';
-		$tabla.='{
-			"id":"'.$row['id'].'",
-			"paraje":"'.$row['id_paraje'].'",
-			"cliente":"'.$no_cliente.'",
-			"nombre":"'.$nombreCliente.'",
-			"constancias":"'.$constancias.'"
-		},';
-	}
-	//eliminamos la coma que sobra
-	$tabla = substr($tabla,0, strlen($tabla) - 1);
-	$conexion->close();
-	//$conexion_remota->close();
-	//echo $consulta;
-	echo '{"data":['.$tabla.']}';
-?>
+    echo json_encode(['data' => $data]);
+} catch (mysqli_sql_exception $e) {
+    error_log('[funcionTraePrevio.php] ' . $e->getMessage());
+    echo json_encode(['data' => []]);
+} finally {
+    $conexion->close();
+}

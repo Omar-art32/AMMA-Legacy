@@ -1,128 +1,63 @@
-# AMMA-Legacy
+# AMMA-Legacy (SIGCE)
 
-Versión original del sistema AMMA ejecutándose mediante Docker.
-
-## Tecnologías
-
-- PHP 5.6
-- Apache
-- MariaDB 10.1
-- phpMyAdmin
+Sistema de Gestión y Control de la Asociación de Maguey y Mezcal Artesanal.  
+PHP 8.3 + MariaDB 10.11 + Docker.
 
 ---
 
-## Requisitos
+## Instalación
 
-- Docker
-- Docker Compose
-
----
-
-## Estructura
-
-```
-AMMA-Legacy/
-│
-├── docker-compose.yml
-├── Dockerfile
-├── README.md
-└── sigce53/
-```
-
----
-
-## Levantar el proyecto
+### 1. Clonar el repositorio
 
 ```bash
-docker compose up -d
+git clone <URL_DEL_REPOSITORIO>
+cd AMMA-Legacy
 ```
 
-Verificar los contenedores.
+### 2. Levantar los contenedores
 
 ```bash
-docker ps
+docker compose up -d --build
 ```
 
----
-
-## Importar la base de datos
+### 3. Importar la base de datos
 
 ```bash
-docker exec -i mariadb101 mysql -uroot -proot amma < sigce53/amma.sql
+# Windows (PowerShell):
+Get-Content amma.sql -Raw | docker exec -i mariadb101 mariadb -uroot -proot --default-character-set=utf8mb4 amma
+
+# Linux/Mac:
+docker exec -i mariadb101 mariadb -uroot -proot --default-character-set=utf8mb4 amma < amma.sql
+```
+
+### 4. Instalar dependencias PHP
+
+```bash
+docker exec -w /var/www/html/sigce53 amma-legacy-web composer install --no-dev
+```
+
+### 5. Abrir el sistema
+
+```
+http://localhost/sigce53/
 ```
 
 ---
 
-## Accesos
+## Credenciales de la base de datos
 
-Sistema
-
-```
-http://localhost/sigce53
-```
-
-phpMyAdmin
-
-```
-http://localhost:8082
-```
-
-Servidor
-
-```
-localhost
-```
-
-Usuario
-
-```
-root
-```
-
-Contraseña
-
-```
-root
-```
-
-Base de datos
-
-```
-amma
-```
+| Parámetro | Valor |
+|---|---|
+| Host | mariadb (dentro de Docker) / localhost:3307 (externo) |
+| Usuario | root |
+| Contraseña | root |
+| Base de datos | amma |
+| phpMyAdmin | http://localhost:8082 |
 
 ---
 
-## Detener el proyecto
+## Detener
 
 ```bash
 docker compose down
 ```
-
----
-
-## Eliminar completamente (incluyendo la base de datos)
-
-```bash
-docker compose down -v
-```
-
----
-
-
-## Avance de migración a PHP 8.3
-
-Migración modular (un módulo a la vez). Ya migrado y funcionando en 8.3:
-
-- `acceso/` — login/autenticación. Ahora con consultas preparadas y manejo de errores de BD.
-- `index.php` (raíz) — página de inicio. El flujo login → inicio → logout está completo en 8.3.
-- `common/` e `includes/` — conexión, configuración y funciones comunes.
-
-Qué movimos:
-
-- Rutas centralizadas en `common/config.php` (antes `/sigce53` estaba escrito a mano).
-- `common/cfg_server.php` quedó como puente que reenvía a `config.php` (para no romper el código viejo).
-- Duplicados y versiones viejas archivados en `acceso/_archivo/` (`login2.php`, `login_old.php`, `entrar010223.php`, `cfg_server.php.old`).
-
-Pendiente: `nmaguey/ y demas modulos de negocio` .
-Las librerías de terceros (`libs/`, `librerias/`, `plugins/`) no se migran: se reemplazan por Composer.

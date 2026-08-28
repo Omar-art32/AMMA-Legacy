@@ -1,150 +1,80 @@
 <?php
-	/*include ("common/conexion.php");
-	include('php/registro/conexion_remota.php');*/
-	include("../common/conexion.php");
-	$conexion->set_charset("utf8");
-	
-	$idus = (isset($_POST['idus']))?$_POST['idus']:0;
-    // ---------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------
-    $sql_conflicto = "";
-    if($idus > 0 ){
-        $usuario_solicita = $_POST['idus'];
+/**
+ * funcionTraeExtraccion.php — PHP 8.3
+ * Lista de predios con guías de extracción (para la tabla de constancias).
+ * Devuelve JSON {data: [...]}.
+ *
+ * Cambios vs 5.6:
+ *  - Consulta N+1 eliminada: nombre del cliente por JOIN (antes: 1 query por fila)
+ *  - JSON manual con concatenación de strings → json_encode (seguro contra XSS)
+ *  - Conflicto de intereses: lista validada con regex antes del IN()
+ *  - include → require_once con __DIR__
+ *  - set_charset("utf8") eliminado
+ *  - Salida HTML de constancias escapada con htmlspecialchars
+ *  - conexion_remota eliminada (los clientes están en la BD local)
+ */
+declare(strict_types=1);
 
-        $conflicto_intereses = $conexion->prepare("SELECT getConflictoIntereses(?)");
-        if (!$conflicto_intereses) 
-            throw new Exception("ERROR AL CONSULTAR CONFLICTO (ERR:001)");
-        $conflicto_intereses->bind_param("i", $usuario_solicita);
-        if (!$conflicto_intereses->execute()) 
-            throw new Exception("ERROR AL CONSULTAR CONFLICTO (ERR:002)");
-        $conflicto_intereses->store_result();
-        $conflicto_intereses->bind_result($clientes_conflicto);
-        $conflicto_intereses->fetch();
-        $conflicto_intereses->close();
+require_once __DIR__ . '/../common/conexion.php';
 
-        /**MODIFICAR CONSULTA DEACUERDO A LAS NECECIDADES 
-         * LA VARIABLE $clientes_conflicto TRAE LOS CLIENTES EN EL SIGUIENTE FORMATO 'C9999','C9998'
-        */
-        /*if($usuario_solicita == 1)
-            $clientes_conflicto = "'C9999','C9998','C0001','C0003','C0249'"; */
+header('Content-Type: application/json; charset=utf-8');
+ini_set('display_errors', '0');
 
-        $sql_conflicto = ($clientes_conflicto != "") ? " WHERE (id_cliente NOT IN ({$clientes_conflicto}) ) " : "";
+$idus = (int)($_POST['idus'] ?? 0);
+
+try {
+    // Conflicto de intereses
+    $sql_conflicto = '';
+    if ($idus > 0) {
+        $stmt = $conexion->prepare('SELECT getConflictoIntereses(?)');
+        $stmt->bind_param('i', $idus);
+        $stmt->execute();
+        $stmt->bind_result($clientes_conflicto);
+        $stmt->fetch();
+        $stmt->close();
+        if ($clientes_conflicto !== null && $clientes_conflicto !== ''
+            && preg_match("/^'[A-Za-z0-9]+'(,'[A-Za-z0-9]+')*$/", $clientes_conflicto)) {
+            $sql_conflicto = " AND p.id_cliente NOT IN ({$clientes_conflicto}) ";
+        }
     }
-    // ---------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------
 
-	$consulta="SELECT paraje.id_cliente,paraje.id_paraje,paraje.constancia_extracciones 
-	from  paraje  
-	inner join cextracciones on (cextracciones.id_paraje=paraje.id_paraje COLLATE utf8_general_ci) 
-	$sql_conflicto 
-	group by paraje.id_paraje order by paraje.id DESC";
+    // Consulta con JOIN a clientes (elimina N+1)
+    $consulta = "SELECT p.id_cliente, p.id_paraje, p.constancia_extracciones,
+                        c.no_cliente, c.nombre AS nombreCliente
+                 FROM paraje p
+                 INNER JOIN cextracciones ce ON ce.id_paraje = p.id_paraje
+                 LEFT JOIN clientes c ON c.no_cliente = p.id_cliente
+                 WHERE 1=1 {$sql_conflicto}
+                 GROUP BY p.id_paraje
+                 ORDER BY p.id DESC";
+    $result = $conexion->query($consulta);
 
-	$registro=$conexion->query($consulta);
-	$tabla = "";
-	foreach ($registro as $row){
-		$no_cliente="";
-		$nombreCliente="";
+    $data = [];
+    while ($row = $result->fetch_assoc()) {
+        $idp = htmlspecialchars($row['id_paraje'] ?? '', ENT_QUOTES);
+        $noc = htmlspecialchars($row['no_cliente'] ?? '', ENT_QUOTES);
+        $nom = htmlspecialchars($row['nombreCliente'] ?? '', ENT_QUOTES);
 
-		if($row['id_cliente']!=""){
+        $constancias = '';
+        if (($row['constancia_extracciones'] ?? '') !== '') {
+            $archivo = htmlspecialchars($row['constancia_extracciones'], ENT_QUOTES);
+            $constancias = '<div class="col-md-4"><a href="constancia/pdfConstanciaExtraccion/' . $archivo . '" target="_blank"><img width="35px" src="images/pdf.svg"></a></div>';
+        }
+        $constancias .= '<div id="items_en_uso_extracciones" class="col-md-4"><a href="#" id="extracciones_' . $idp . '"><img width="35px" src="images/exchange.svg"></a></div>';
 
-			$cliente=$row['id_cliente'];
-			$strCliente = "SELECT clientes.no_cliente,clientes.nombre
-						from clientes 
-						where clientes.no_cliente='$cliente'";
-		
-			$clientes= $conexion->query($strCliente);
-			$filaClientes = mysqli_fetch_array($clientes);
+        $data[] = [
+            'paraje'      => $row['id_paraje'],
+            'cliente'     => $row['no_cliente'] ?? '',
+            'nombre'      => $row['nombreCliente'] ?? '',
+            'constancias' => $constancias,
+            'opciones'    => '',
+        ];
+    }
 
-			$no_cliente=$filaClientes['no_cliente'];
-			$nombreCliente=$filaClientes['nombre'];
-
-	   }
-
-
-		$id_paraje = "'".$row['id_paraje']."'";
-		$no_cliente_s = "'".$no_cliente."'";
-		$nombre_s = "'".$nombreCliente."'";
-		$constancias = ($row["constancia_extracciones"]!="")?'<div class=\"col-md-4\"> <a href=\"constancia/pdfConstanciaExtraccion/'.$row["constancia_extracciones"].'\" target=\"_blank\"><img width=\"35px\" src=\"images/pdf.svg\"></a></div>':'';
-		$constancias .= '<div id=\"items_en_uso_extracciones\" class=\"col-md-4\"> <a href=\"#\" id=\"extracciones_'.$row["id_paraje"].'\"><img width=\"35px\" src=\"images/exchange.svg\"></a></div>';
-		$agregar = '<a href=\"\" title=\"Constancias\" class=\"btn btn-primary\" onclick=\"constancias('.$id_paraje.','.$no_cliente_s.','.$nombre_s.')\" data-toggle=\"modal\" data-target=\"#exampleModalCenter\"><span class=\"glyphicon glyphicon-plus\"></span></a>';
-		
-		// CHECAR GUÍAS 
-		####################################################################################
-		/*$cadenaSqlGO = "SELECT *
-		from cextracciones c
-		WHERE id_paraje = '".$row['id_paraje']."' AND id_extraccion IN (SELECT no_guia from historial_extraccion_verificadores) ";
-		$sqlCountGO = $conexion->prepare($cadenaSqlGO);
-		
-		$sqlCountGO->store_result();
-		$totalResGO = $sqlCountGO->num_rows; // cuenta el total de registros devueltos
-
-		$cadenaSqlG = "SELECT * from cextracciones WHERE id_paraje = '".$row['id_paraje']."' ";
-		$sqlCountG= $conexion->prepare($cadenaSqlG);
-		
-		$sqlCountG->store_result();
-		$totalResG = $sqlCountG->num_rows; // cuenta el total de registros devueltos*/
-		// ####################################################################################
-
-		
-		$agregar = '';
-		$tabla.='{
-			"paraje":"'.$row['id_paraje'].'",
-			"cliente":"'.$no_cliente.'",
-			"nombre":"'.$nombreCliente.'",
-			"constancias":"'.$constancias.'",
-			"opciones":"'.$agregar.'"
-		},';
-	}
-
-	//VIVEROS
-	/*$consulta="SELECT pv.id_cliente,pv.id_paraje,pv.constancia_extracciones 
-	from  paraje_vivero pv 
-	inner join cextracciones on (cextracciones.id_paraje=pv.id_paraje COLLATE utf8_general_ci) 
-	$sql_conflicto 
-	group by pv.id_paraje order by pv.id ASC; ";
-
-	$registro=$conexion->query($consulta);
-	$tabla = "";
-	foreach ($registro as $row){
-
-
-		$no_cliente="";
-		$nombreCliente="";
-
-		if($row['id_cliente']!=""){
-
-		$cliente=$row['id_cliente'];
-	    $strCliente = "SELECT clientes.no_cliente,clientes.nombre
-					   from clientes 
-					   where clientes.no_cliente='$cliente'";
-   
-	   $clientes= $conexion->query($strCliente);
-	   $filaClientes = mysqli_fetch_array($clientes);
-
-	   $no_cliente=$filaClientes['no_cliente'];
-	   $nombreCliente=$filaClientes['nombre'];
-
-	   }
-
-
-		$id_paraje = "'".$row['id_paraje']."'";
-		$no_cliente_s = "'".$no_cliente."'";
-		$nombre_s = "'".$nombreCliente."'";
-		$constancias = ($row["constancia_extracciones"]!="")?'<div class=\"col-md-4\"> <a href=\"constancia/pdfConstanciaExtraccion/'.$row["constancia_extracciones"].'\" target=\"_blank\"><img width=\"35px\" src=\"images/pdf.svg\"></a></div>':'';
-		$constancias .= '<div id=\"items_en_uso_extraccionesv\" class=\"col-md-4\"> <a href=\"#\" id=\"extracciones_'.$row["id_paraje"].'\"><img width=\"35px\" src=\"images/exchange.svg\"></a></div>';
-		$agregar = '<a href=\"\" title=\"Constancias\" class=\"btn btn-primary\" onclick=\"constancias('.$id_paraje.','.$no_cliente_s.','.$nombre_s.')\" data-toggle=\"modal\" data-target=\"#exampleModalCenter\"><span class=\"glyphicon glyphicon-plus\"></span></a>';
-		$tabla.='{
-			"paraje":"'.$row['id_paraje'].'",
-			"cliente":"'.$no_cliente.'",
-			"nombre":"'.$nombreCliente.'",
-			"constancias":"'.$constancias.'",
-			"opciones":"'.$agregar.'"
-		},';
-	}*/
-
-	//eliminamos la coma que sobra
-	$tabla = substr($tabla,0, strlen($tabla) - 1);
-	$conexion->close();
-	//$conexion_remota->close();
-	echo '{"data":['.$tabla.']}';	
-?>
+    echo json_encode(['data' => $data]);
+} catch (mysqli_sql_exception $e) {
+    error_log('[funcionTraeExtraccion.php] ' . $e->getMessage());
+    echo json_encode(['data' => []]);
+} finally {
+    $conexion->close();
+}

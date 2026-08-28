@@ -1,371 +1,219 @@
 <?php
+/**
+ * php/r_excel_predios.php — PHP 8.3
+ * Reporte Excel de predios (descarga .xlsx vía tmp_excel/).
+ *
+ * Cambios vs 5.6:
+ *  - PHPExcel → PhpSpreadsheet (Composer)
+ *  - Consulta con prepared statements para los filtros
+ *  - Sesión validada con ??/isset; header+exit en redirección
+ *  - display_errors desactivado (los warnings corrompen el JSON de respuesta)
+ *  - Función fecha() con match() en lugar de switch con break
+ *  - Logo: PHPExcel_Worksheet_Drawing → PhpSpreadsheet\Worksheet\Drawing
+ *  - N+1 de conteo de guías eliminada (subconsultas correlacionadas)
+ */
+declare(strict_types=1);
+
+session_set_cookie_params([
+    'lifetime' => 0, 'path' => '/', 'domain' => '',
+    'secure' => isset($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax',
+]);
 session_start();
-session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
-$mod=1;
-require_once("../../common/cfg_server.php");
-$d_s=$_POST["id_s"];
-if(isset($_SESSION[$d_s]))
+
+$mod = 1;
+require_once __DIR__ . '/../../common/cfg_server.php';
+
+$d_s = (string)($_POST['id_s'] ?? '');
+
+if (!isset($_SESSION[$d_s]) || ($_SESSION[$d_s]['logged'] ?? '') !== 'OK'
+    || ($_SESSION[$d_s]['seccion_4_5'] ?? '') !== 'logged') {
+    $esquema = isset($_SERVER['HTTPS']) ? 'https' : 'http';
+    header("Location: {$esquema}://{$svr_dir}/acceso/login.php?mod={$mod}");
+    exit;
+}
+
+// No mostrar errores en la salida (contaminan el JSON)
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+date_default_timezone_set('America/Mexico_City');
+
+if (PHP_SAPI === 'cli') exit('Solo desde navegador');
+
+require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../../common/conexion.php';
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+
+header('Content-Type: application/json; charset=utf-8');
+
+function fecha(string $fech): string
 {
-	if($_SESSION[$d_s]["logged"] != "OK")
-	{
-		header("location: http://".$svr_dir."/acceso/login.php?mod=$mod");
-	}
-	else if($_SESSION[$d_s]["logged"] == "OK" &&  $_SESSION[$d_s]["seccion_4_5"]=="logged")
-	{
-		
-		error_reporting(E_ALL);
-		ini_set('display_errors', TRUE);
-		ini_set('display_startup_errors', TRUE);
-		date_default_timezone_set('Mexico/General');
-		if (PHP_SAPI == 'cli')
-		die('This example should only be run from a Web Browser');
+    $dat = explode('-', $fech);
+    if (count($dat) < 3) return $fech;
+    $m = match ($dat[1]) {
+        '01' => 'Ene', '02' => 'Feb', '03' => 'Mar', '04' => 'Abr',
+        '05' => 'May', '06' => 'Jun', '07' => 'Jul', '08' => 'Ago',
+        '09','9' => 'Sep', '10' => 'Oct', '11' => 'Nov', '12' => 'Dic',
+        default => $dat[1],
+    };
+    return "{$dat[2]}-{$m}-{$dat[0]}";
+}
 
-		/** Include PHPExcel */
-		require_once '../../libs/phpExcel/PHPExcel.php';
-		include('../../common/conexion.php');
-		mysqli_set_charset($conexion,"utf8");
-		/** DECLARACION DE VARIABLES */
-		$fecha = date("Y-m-d" );
-		$msj1="";
-		$file_name="";
-		$periodo="";
-		$msj_per="";
+$search = (string)($_POST['busca'] ?? '');
+$fecha1 = trim((string)($_POST['fecha1'] ?? ''));
+$fecha2 = trim((string)($_POST['fecha2'] ?? ''));
+$clientesel = (string)($_POST['cliente'] ?? '');
+$periodo = ''; $msj_per = '';
+$r_h = 5; $st_r = 6;
+$file_name = 'predios_' . rand() . '.xlsx';
 
-		$new_index="";
-		$last_index="";
-		$cont_result=1;
-		$r_h=5; // es el numero de fila del encabezado
-		$st_r=6; //es el numero a partir del cual se agregaran los datos
-		//$arr_sum=array();
-		//$array_resumen=array();
-		//$colors=array('FCE4D6','DDEBF7','E2EFDA','FFF2CC','EFEFEF','DDF0F2','EFE7F3','DBEFD3');
-		//$colors=array('FCE4D6','DDEBF7','E2EFDA','EFE7F3','EFEFEF','FFF2CC','DDF0F2','DBEFD3');
-		$fill_color="";
-		$bandera_color=0;
-		$pos_ini="";
-		$pos_fin="";
-		
-		//$sql_sum="select if(h_salidas.marca='','GEN',h_salidas.marca) cve, h_salidas.no_cliente, if(marcas.marca is null,'GEN',marcas.marca) marca, if(h_salidas.serie='','GEN',h_salidas.serie) serie, sum(h_salidas.se1) suma from h_salidas left join marcas on marcas.no_cliente=h_salidas.no_cliente and marcas.cve_marca=h_salidas.marca";
-		//$str_sql="select * from sellos_2013 order by fecha_entr";
-		$consulta = "SELECT p.* , DATE(p.fecharegistro) p_fecharegistro, 
-        l.localidad nomlocalidad, mun.nombre nommunicipio, es.nombre nomestado, c.nombre nombrecli
-        FROM paraje p 
-        INNER JOIN clientes c ON p.id_cliente = c.no_cliente 
-        LEFT JOIN localidades l ON p.id_localidad = l.id 
+try {
+    $cond = []; $tipos = ''; $params = [];
+    if ($search !== '' && $search !== 'undefined') {
+        $cond[] = "(p.id_paraje LIKE CONCAT('%',?,'%') OR p.paraje LIKE CONCAT('%',?,'%')
+            OR p.lat LIKE CONCAT('%',?,'%') OR p.lng LIKE CONCAT('%',?,'%')
+            OR p.id_cliente LIKE CONCAT('%',?,'%') OR p.nombrep LIKE CONCAT('%',?,'%')
+            OR p.rcampo LIKE CONCAT('%',?,'%') OR l.localidad LIKE CONCAT('%',?,'%')
+            OR mun.nombre LIKE CONCAT('%',?,'%') OR mun.estado LIKE CONCAT('%',?,'%'))";
+        $tipos .= str_repeat('s', 10);
+        for ($i = 0; $i < 10; $i++) $params[] = $search;
+    }
+    if ($fecha1 !== '' && $fecha2 !== '') {
+        $cond[] = 'DATE(p.fecharegistro) BETWEEN ? AND ?';
+        $tipos .= 'ss'; array_push($params, $fecha1, $fecha2);
+        $periodo = fecha($fecha1) . '  a  ' . fecha($fecha2); $msj_per = 'Periodo:';
+    } elseif ($fecha1 !== '') {
+        $cond[] = 'DATE(p.fecharegistro) = ?';
+        $tipos .= 's'; $params[] = $fecha1;
+        $periodo = fecha($fecha1); $msj_per = 'Fecha:';
+    }
+    if ($clientesel !== '' && $clientesel !== '0') {
+        $cond[] = 'p.id_cliente = ?'; $tipos .= 's'; $params[] = $clientesel;
+    }
+    $where = $cond ? 'WHERE ' . implode(' AND ', $cond) : '';
+
+    $consulta = "SELECT p.*, DATE(p.fecharegistro) p_fecharegistro,
+        l.localidad nomlocalidad, mun.nombre nommunicipio, es.nombre nomestado, c.nombre nombrecli,
+        (SELECT COUNT(*) FROM cextracciones ce WHERE ce.id_paraje = p.id_paraje) CountG,
+        (SELECT COUNT(*) FROM cextracciones ce WHERE ce.id_paraje = p.id_paraje
+            AND ce.id_extraccion IN (SELECT no_guia FROM historial_extraccion_verificadores)) CountGO
+        FROM paraje p
+        INNER JOIN clientes c ON p.id_cliente = c.no_cliente
+        LEFT JOIN localidades l ON p.id_localidad = l.id
         LEFT JOIN municipios mun ON mun.id = l.MunicipioID
-          LEFT JOIN estados es ON es.clave = mun.estado";
-      // $where  $sql_conflicto ";
+        LEFT JOIN estados es ON es.clave = mun.estado
+        {$where} ORDER BY p.fecharegistro ASC";
 
-		if(isset($_POST)){
-			$search = $_POST['busca'];
-			$fecha1 = $_POST['fecha1'];
-			$fecha2 = $_POST['fecha2'];
+    $stmt = $conexion->prepare($consulta);
+    if ($tipos !== '') $stmt->bind_param($tipos, ...$params);
+    $stmt->execute();
+    $res = $stmt->get_result();
 
-			$he1 = "";
-			$msj1 = "";
-			$file_name = 'predios_' . rand() . '.xlsx';
-			//$operador = " where ";
-			// CUADRO DE BÚSQUEDA
-			if($search != "" && $search != "undefined") {
-				$consulta .= " WHERE (id_paraje LIKE '%$search%' || paraje LIKE '%$search%' || lat LIKE '%$search%' || lng LIKE '%$search%' || id_cliente LIKE '%$search%' 
-						|| nombrep LIKE '%$search%' || rcampo LIKE '%$search%' || l.localidad LIKE '%$search%' || mun.nombre LIKE '%$search%' || mun.estado LIKE '%$search%') ";
-			} 
-			// FECHAS
-			if(trim($fecha1) != '' && trim($fecha2) != '') {
-				$consulta .= (($search != "") ? " AND ": " WHERE ") ." DATE(p.fecharegistro) between '$fecha1' and '$fecha2' ";
-				$periodo=fecha($fecha1).'  a  '.fecha($fecha2);
-				$msj_per="Periodo:";
-			} else if( trim($fecha1) != '') {
-				$consulta .= (($search != "") ? " AND ": " WHERE ") ." DATE(p.fecharegistro) = '$fecha1' ";
-				$periodo=fecha($fecha1);
-				$msj_per="Fecha:";
-			} 
-			// CLIENTE 
-			$clientesel= (!isset($_POST['cliente'])) ? "": $_POST['cliente'];
-			if($clientesel != "" && $clientesel != "0") {
-				$consulta .= (trim($fecha1) != '' || trim($fecha2) != '' || ($search != "" && $search != "undefined")) ? " AND ": " WHERE "; 
-				$consulta .= " (p.id_cliente IN ('$clientesel')) ";
-			}
-			$consulta .= "  ORDER BY p.fecharegistro ASC";
-			//echo $consulta;
-			$res=$conexion->query($consulta);
-			$tot=$res->num_rows;
-			$t2=$res->field_count;
-			$letras=array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC');
-			// Create new PHPExcel object
-			$objPHPExcel = new PHPExcel();
-			// Set document properties
-			$objPHPExcel->getProperties()->setCreator("NJGC")
-			->setLastModifiedBy("AMMA")
-			->setTitle("REPORTES")
-			->setSubject("REPORTES")
-			->setDescription("REPORTE GENERAL")
-			->setKeywords("office 2007 openxml php")
-			->setCategory("REPORTE");
-			$styleArray = array(
-				'font' => array(
-					'bold' => true,
-					),
-				'alignment' => array(
-					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-					),
-				'borders' => array(
-					'allborders' => array(
-						'style' => PHPExcel_Style_Border::BORDER_THIN,
-						),
-					),
-				'fill' => array(
-					'type' => PHPExcel_Style_Fill::FILL_GRADIENT_LINEAR,'rotation' => 90,
-					'startcolor' => array(
-						'argb' => 'FFA0A0A0',
-					),
-					'endcolor' => array(
-						'argb' => 'FFFFFFFF',
-					),
-				),
-			);
-			$styleArray2 = array(
-				'font' => array(
-					'bold' => true,
-					'color'=>array('rgb'=>'ffffff'),
-				),
-				'borders' => array(
-					'allborders' => array(
-						'style' => PHPExcel_Style_Border::BORDER_THIN,
-						'color' => array('rgb' => '9DB2B3'),
-						),
-					),
-				'alignment' => array(
-					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-					'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER,
-				),
-				'fill' => array(
-					'type' => PHPExcel_Style_Fill::FILL_SOLID,
-					'color' => array('rgb'=>'23719E'),
-				),
-			);
-			$styleArray3 = array(
-				'font' => array(
-					'bold' => false,
-					/*'color'=>array('rgb'=>'ffffff'),*/
-				),
-				'borders' => array(
-					'allborders' => array(
-						'style' => PHPExcel_Style_Border::BORDER_THIN,
-						'color' => array('rgb' => '6A8696'),
-						),
-					),
-				'alignment' => array(
-					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_RIGHT,
-					'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER,
-				),
-				'fill' => array(
-					'type' => PHPExcel_Style_Fill::FILL_SOLID,
-					'color' => array('rgb'=>'2E966D'),
-				),
-			);
+    $spreadsheet = new Spreadsheet();
+    $spreadsheet->getProperties()->setCreator('NJGC')->setTitle('REPORTE DE PREDIOS');
 
-			//HEADER
-			$objPHPExcel->getActiveSheet()->mergeCells('C1:Q1');
-			$objPHPExcel->getActiveSheet()->setCellValue('C1', 'ASOCIACIÓN DE MAGUEY Y MEZCAL ARTESANAL');
-			//$objPHPExcel->getActiveSheet()->setCellValue('A3', $consulta);
-			$objPHPExcel->getActiveSheet()->getStyle('C1')->getFont()->setSize(18);
-			$objPHPExcel->getActiveSheet()->getStyle('C1')->getFont()->setBold(true);
-			$objPHPExcel->getActiveSheet()->getStyle('C1:Q1')->getAlignment()->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
-			$objPHPExcel->getActiveSheet()->getRowDimension(1)->setRowHeight(50);
-			$objPHPExcel->getActiveSheet()->getRowDimension(2)->setRowHeight(30);
-			$objPHPExcel->getActiveSheet()->mergeCells('C2:Q2');
-			$objPHPExcel->getActiveSheet()->setCellValue('C2', 'REPORTE DE PREDIOS');
-			$objPHPExcel->getActiveSheet()->getStyle('C2')->getFont()->setSize(14);
-			$objPHPExcel->getActiveSheet()->getStyle('C2')->getFont()->setBold(true);
-			$objPHPExcel->getActiveSheet()->getStyle('C2:Q2')->getAlignment()->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
-			$objPHPExcel->getActiveSheet()->getStyle('C2:Q2')->getAlignment()->setVertical(PHPExcel_Style_Alignment::VERTICAL_CENTER);
-			
-			//logotipo
-			$objPHPExcel->getDefaultStyle()->getFont()->setName('Calibri');
-			$objPHPExcel->getDefaultStyle()->getFont()->setSize(11);
-			$objPHPExcel->getActiveSheet()->mergeCells('A1:B2');
-			$objDrawing = new PHPExcel_Worksheet_Drawing();
-			$objDrawing->setName('logo');
-			$objDrawing->setDescription('PHPExcel logo');
-			$objDrawing->setPath('../../images/logo_amma.jpg');       // filesystem reference for the image file
-			$objDrawing->setHeight(80);                 // sets the image height to 36px (overriding the actual image height);
-			$objDrawing->setCoordinates('A1');    // pins the top-left corner of the image to cell D24
-			$objDrawing->setOffsetX(10);                // pins the top left corner of the image at an offset of 10 points horizontally to the right of the top-left corner of the cell
-			$objDrawing->setWorksheet($objPHPExcel->getActiveSheet());
-			//AGREGAR ENCABEZADO DE LA TABLA
-			$objPHPExcel->getActiveSheet()->getStyle('A'.$r_h.':Q'.$r_h)->applyFromArray($styleArray2);
+    $styleArray = [
+        'font' => ['bold' => true],
+        'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+        'fill' => [
+            'fillType' => Fill::FILL_GRADIENT_LINEAR, 'rotation' => 90,
+            'startColor' => ['argb' => 'FFA0A0A0'], 'endColor' => ['argb' => 'FFFFFFFF'],
+        ],
+    ];
+    $styleArray2 = [
+        'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '9DB2B3']]],
+        'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        'fill' => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => '23719E']],
+    ];
+    $styleArray3 = [
+        'font' => ['bold' => false],
+        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '6A8696']]],
+        'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER],
+        'fill' => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => '2E966D']],
+    ];
 
-			$objPHPExcel->setActiveSheetIndex(0);
+    // Header del libro
+    $spreadsheet->getActiveSheet()->mergeCells('C1:Q1');
+    $spreadsheet->getActiveSheet()->setCellValue('C1', 'ASOCIACIÓN DE MAGUEY Y MEZCAL ARTESANAL');
+    $spreadsheet->getActiveSheet()->getStyle('C1')->getFont()->setSize(18)->setBold(true);
+    $spreadsheet->getActiveSheet()->getStyle('C1:Q1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+    $spreadsheet->getActiveSheet()->getRowDimension(1)->setRowHeight(50);
+    $spreadsheet->getActiveSheet()->getRowDimension(2)->setRowHeight(30);
+    $spreadsheet->getActiveSheet()->mergeCells('C2:Q2');
+    $spreadsheet->getActiveSheet()->setCellValue('C2', 'REPORTE DE PREDIOS');
+    $spreadsheet->getActiveSheet()->getStyle('C2')->getFont()->setSize(14)->setBold(true);
+    $spreadsheet->getActiveSheet()->getStyle('C2:Q2')->getAlignment()
+        ->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
 
-			$arrTitsCampos = array(
-				"FECHA"			=>"p_fecharegistro",
-				"PREDIO"		=>"id_paraje",
-				"NOMBRE PREDIO"	=>"paraje",
-				"NO. CONTROL"	=>"id_cliente",
-				"NOMBRE"		=>"nombrecli",
-				"NOMBRE PRODUCTOR" =>"nombrep",
-				"RESPONSABLE EN CAMPO" =>"rcampo",
-				"SUPERFICIE(ha)" 	=>"superficie",
-				"LATITUD" 		=>"lat",
-				"LONGITUD" 		=>"lng",
-				"LOCALIDAD" 		=>"nomlocalidad",
-				"MUNICIPIO" 	  =>"nommunicipio",
-				"ESTADO" 		  =>"nomestado",
-				"REGISTRO" 		  =>"txtmcr",
-				"GUÍAS GENERADAS" =>"CountG",
-				"GUÍAS USADAS" 	  =>"CountGO",
-				"GUÍAS DISPONIBLES"	=>"CountGD"
-			);
-			$letra = "A";
-			foreach($arrTitsCampos as $index => $elem) {
-				$objPHPExcel->setActiveSheetIndex(0)->setCellValue($letra.$r_h, $index);
-				$letra++;
-			}
-			$letra = "A";
-			for($x=0;$x<=$t2;$x++) {
-				$objPHPExcel->getActiveSheet()->getStyle($letra."2")->getFont()->setBold(true);
-				$letra++;
-			}
-			$x=$st_r;
-			$arr_fila=array();
-			$n = 6;
-			while($row = $res->fetch_assoc()) {
-				$txtmcr = "";
-				$maguey_con_registro = $row["maguey_con_registro"];
-				if($maguey_con_registro == 1){
-					$txtmcr = "EN SITIO";
-				} elseif($maguey_con_registro == 2){
-					$txtmcr = "DOCUMENTAL";
-				}
-				$txtmcr .= ($row["servicio"] != "") ? " ".$row["servicio"] : "";
+    // Logo
+    $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(11);
+    $spreadsheet->getActiveSheet()->mergeCells('A1:B2');
+    $logo = new Drawing();
+    $logo->setName('logo')->setDescription('Logo AMMA');
+    $logo->setPath(__DIR__ . '/../../images/logo_amma.jpg');
+    $logo->setHeight(80)->setCoordinates('A1')->setOffsetX(10);
+    $logo->setWorksheet($spreadsheet->getActiveSheet());
 
-				$cadenaSqlGO = "SELECT *
-				from cextracciones c
-				WHERE id_paraje = '".$row['id_paraje']."' AND id_extraccion IN (SELECT no_guia from historial_extraccion_verificadores) ";
-				$sqlCountGO = $conexion->prepare($cadenaSqlGO);
-				$sqlCountGO->execute(); /* ejecutar la consulta */
-				$sqlCountGO->store_result();
-				$CountGO = $sqlCountGO->num_rows; // cuenta el total de registros devueltos
+    $hoja = $spreadsheet->getActiveSheet();
+    $hoja->getStyle('A'.$r_h.':Q'.$r_h)->applyFromArray($styleArray2);
 
-				$cadenaSqlG = "SELECT * from cextracciones WHERE id_paraje = '".$row['id_paraje']."' ";
-				$sqlCountG= $conexion->prepare($cadenaSqlG);
-				$sqlCountG->execute(); /* ejecutar la consulta */
-				$sqlCountG->store_result();
-				$CountG = $sqlCountG->num_rows;
-				$letra = "A";
-				$CountGD = $CountG - $CountGO;
-				foreach($arrTitsCampos as $index => $obj) {
-					if($obj == "CountG" || $obj == "CountGO" || $obj == "CountGD" || $obj == "txtmcr") 
-						$objPHPExcel->setActiveSheetIndex(0)->setCellValue("$letra".$n, ${$obj});
-					else 
-						$objPHPExcel->setActiveSheetIndex(0)->setCellValue("$letra".$n, $row[$obj]);
-					
-					$letra++;
-				}
+    $arrTitsCampos = [
+        'FECHA' => 'p_fecharegistro', 'PREDIO' => 'id_paraje', 'NOMBRE PREDIO' => 'paraje',
+        'NO. CONTROL' => 'id_cliente', 'NOMBRE' => 'nombrecli', 'NOMBRE PRODUCTOR' => 'nombrep',
+        'RESPONSABLE EN CAMPO' => 'rcampo', 'SUPERFICIE(ha)' => 'superficie',
+        'LATITUD' => 'lat', 'LONGITUD' => 'lng', 'LOCALIDAD' => 'nomlocalidad',
+        'MUNICIPIO' => 'nommunicipio', 'ESTADO' => 'nomestado', 'REGISTRO' => 'txtmcr',
+        'GUÍAS GENERADAS' => 'CountG', 'GUÍAS USADAS' => 'CountGO', 'GUÍAS DISPONIBLES' => 'CountGD',
+    ];
+    $letra = 'A';
+    foreach ($arrTitsCampos as $titulo => $_) { $hoja->setCellValue($letra . $r_h, $titulo); $letra++; }
 
-				$letra = "A";
-				foreach($arrTitsCampos as $index => $obj) {
-					$objPHPExcel->getActiveSheet()->getColumnDimension($letra)->setAutoSize(true);
-					$letra++;
-				}
-				$n++;
-			}
-			
-			$objPHPExcel->getActiveSheet(0)->setTitle("PREDIOS");
+    $n = $st_r;
+    while ($row = $res->fetch_assoc()) {
+        $txtmcr = match ((int)$row['maguey_con_registro']) {
+            1 => 'EN SITIO', 2 => 'DOCUMENTAL', default => '',
+        };
+        $txtmcr .= ($row['servicio'] ?? '') !== '' ? ' ' . $row['servicio'] : '';
+        $CountG  = (int)$row['CountG'];
+        $CountGO = (int)$row['CountGO'];
+        $CountGD = $CountG - $CountGO;
 
-			$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
-			$objWriter->save('../tmp_excel/'.$file_name);
-			$dir_file="http://".$svr_dir."/maguey/tmp_excel/".$file_name;
-			echo json_encode(array('status' => 'OK','msj'=>$dir_file));
-			exit;
-			//FIN DEL SCRIPT PARA GENERAR EL ARCHIVO
-		}//FIN ISSET CLIENTE
-		else
-			echo json_encode(array('status' => 'error','msj'=>'datos vacios'));
+        $letra = 'A';
+        foreach ($arrTitsCampos as $_ => $col) {
+            $val = match ($col) {
+                'txtmcr'  => $txtmcr,
+                'CountG'  => $CountG,
+                'CountGO' => $CountGO,
+                'CountGD' => $CountGD,
+                default   => $row[$col] ?? '',
+            };
+            $hoja->setCellValue($letra . $n, $val);
+            $letra++;
+        }
+        $n++;
+    }
+    $letra = 'A';
+    foreach ($arrTitsCampos as $_ => $__) { $hoja->getColumnDimension($letra)->setAutoSize(true); $letra++; }
+    $hoja->setTitle('PREDIOS');
 
-	}
-	else
-	{
-	  header("location: http://".$svr_dir."/acceso/login.php?mod=$mod");
-	}
+    // Guardar en tmp_excel y responder JSON con URL
+    $esquema = isset($_SERVER['HTTPS']) ? 'https' : 'http';
+    $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+    $writer->save(__DIR__ . '/../tmp_excel/' . $file_name);
+    $dir_file = $esquema . '://' . $svr_dir . '/maguey/tmp_excel/' . $file_name;
+    echo json_encode(['status' => 'OK', 'msj' => $dir_file]);
+    exit;
+
+} catch (\Throwable $e) {
+    error_log('[r_excel_predios] ' . $e->getMessage());
+    echo json_encode(['status' => 'error', 'msj' => 'Error al generar el reporte']);
+} finally {
+    $conexion->close();
 }
-else
-{
-  header("location: http://".$svr_dir."/acceso/login.php?mod=$mod");
-}
-
-function fecha($fech)
-{
-	$dat=array();
-	$dat=explode('-',$fech);
-	$m='';
-	switch($dat[1])
-	{
-		case '01':
-		{
-			$m="Ene";
-			break;
-		}
-		case '02':
-		{
-			$m="Feb";
-			break;
-		}
-		case '03':
-		{
-			$m="Mar";
-			break;
-		}
-		case '04':
-		{
-			$m="Abr";
-			break;
-		}
-		case '05':
-		{
-			$m="May";
-			break;
-		}
-		case '06':
-		{
-			$m="Jun";
-			break;
-		}
-
-		case '07':
-		{
-			$m="Jul";
-			break;
-		}
-		case '08':
-		{
-			$m="Ago";
-			break;
-		}
-		case '9':
-		{
-			$m="Sep";
-			break;
-		}
-		case '10':
-		{
-			$m="Oct";
-			break;
-		}
-		case '11':
-		{
-			$m="Nov";
-			break;
-		}
-		case '12':
-		{
-			$m="Dic";
-			break;
-		}
-
-	}
-	$nfech=$dat[2]."-".$m."-".$dat[0];
-		return $nfech;
-}
-?>

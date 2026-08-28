@@ -38,6 +38,8 @@ function e(mixed $v): string
 $criterio = (string)($_POST['criterio'] ?? '');
 $state    = (string)($_POST['state'] ?? '');
 
+// Se usa preg_match en lugar de explode para validar el formato
+// "ID_PARAJE-TIPO" y obtener sus partes al mismo tiempo.
 if (!preg_match('/^([A-Za-z0-9]+)-([12])$/', $criterio, $m)
     || !preg_match('/^[A-Za-z0-9]+$/', $state)) {
     echo '<center><p>NO HAY NINGUN PARAJE SELECCIONADO</p></center>';

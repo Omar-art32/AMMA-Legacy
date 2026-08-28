@@ -20,7 +20,10 @@ services:
       - mariadb
 
     environment:
-      PHP_IDE_CONFIG: serverName=AMMA
+      DB_HOST: mariadb
+      DB_NAME: amma
+      DB_USER: root
+      DB_PASS: root
 
   mariadb:
     image: mariadb:10.11

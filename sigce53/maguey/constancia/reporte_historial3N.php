@@ -1,13 +1,62 @@
 <?php
+declare(strict_types=1);
+
 
 include_once("Polyline.php");
-require('fpdf/fpdf.php');
+require_once __DIR__ . '/../../vendor/autoload.php';
 include('../php/registro/conexion.php');
 include('../php/registro/conexion_remota.php');
 $conexion->set_charset("utf8");
 $conexion_remota->set_charset("utf8");
 header("Content-Type: text/html; charset=iso-8859-1 ");
 
+/**
+ * ============================================================================
+ *  CAPA DE COMPATIBILIDAD PHP 8.3 (no altera la logica ni el diseno del PDF)
+ * ============================================================================
+ *  1) compat_utf8_decode() esta OBSOLETA desde PHP 8.2 (se elimina en PHP 9).
+ *     compat_utf8_decode() reproduce EXACTAMENTE el mismo resultado
+ *     (conversion UTF-8 -> ISO-8859-1) usando mb_convert_encoding(),
+ *     sin generar el aviso "Deprecated".
+ *
+ *  2) compat_strftime() esta OBSOLETA desde PHP 8.1 (se elimina en PHP 9).
+ *     compat_strftime() reproduce el mismo formato de fecha en espanol
+ *     que usaba este reporte ("%d-%b-%Y" y "%Y"), sin depender del
+ *     locale del sistema operativo (setlocale ya no es necesario, pero
+ *     se deja la llamada original para no modificar la logica existente).
+ *
+ *  Ambas funciones se definen solo si no existen, para poder incluir
+ *  este archivo mas de una vez sin provocar errores de redeclaracion.
+ * ============================================================================
+ */
+if (!function_exists('compat_utf8_decode')) {
+	function compat_utf8_decode(?string $string): string
+	{
+		// Mismo comportamiento que el nativo compat_utf8_decode(): UTF-8 -> ISO-8859-1
+		return mb_convert_encoding((string) $string, 'ISO-8859-1', 'UTF-8');
+	}
+}
+
+if (!function_exists('compat_strftime')) {
+	function compat_strftime(string $format, $timestamp = null): string
+	{
+		static $meses = array('ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic');
+		$timestamp = ($timestamp === null) ? time() : (int) $timestamp;
+		$dt = new DateTime('@' . $timestamp);
+		$dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+		switch ($format) {
+			case '%d-%b-%Y':
+				// Igual que el formato usado por strftime en este reporte
+				return sprintf('%02d-%s-%d', (int) $dt->format('d'), $meses[(int) $dt->format('n') - 1], (int) $dt->format('Y'));
+			case '%Y':
+				return $dt->format('Y');
+			default:
+				return $dt->format('Y-m-d');
+		}
+	}
+}
+
+#[AllowDynamicProperties] // Necesario en PHP 8.2+ porque esta clase asigna propiedades dinamicas que FPDF no declara
 class PDF extends FPDF {
 
     var $widths;
@@ -128,17 +177,17 @@ class PDF extends FPDF {
         if ($fila['tipo'] == '1') {
             $this->AliasNbPages();
             $this->SetY(-21);
-            $this->Cell(0, 5, utf8_decode('Página') . $this->PageNo() . '/{nb}', 0, 5, 'L');
+            $this->Cell(0, 5, compat_utf8_decode('Página') . $this->PageNo() . '/{nb}', 0, 5, 'L');
             $this->SetY(-21);
             $this->Cell(0, 5, Utf8_decode('FM-02/00.'), 0, 5, 'R');
 
             $this->SetY(-17);
-            $this->Cell(0, 5, utf8_decode('ESTE DOCUMENTO NO ES UN INSTRUMENTO LEGAL, ÚNICAMENTE AMPARA EL REGISTRO DE LA PLANTACIÓN DEL MAGUEY DENTRO'), 0, 5, 'C');
-            $this->Cell(0, 5, utf8_decode('DEL PREDIO PARA GARANTIZAR LA TRAZABILIDAD DE LA MATERIA PRIMA UTILIZADA EN LA PRODUCCIÓN DE MEZCAL.'), 0, 5, 'C');
+            $this->Cell(0, 5, compat_utf8_decode('ESTE DOCUMENTO NO ES UN INSTRUMENTO LEGAL, ÚNICAMENTE AMPARA EL REGISTRO DE LA PLANTACIÓN DEL MAGUEY DENTRO'), 0, 5, 'C');
+            $this->Cell(0, 5, compat_utf8_decode('DEL PREDIO PARA GARANTIZAR LA TRAZABILIDAD DE LA MATERIA PRIMA UTILIZADA EN LA PRODUCCIÓN DE MEZCAL.'), 0, 5, 'C');
         } else {
-            $this->Cell(0, 5, utf8_decode('FM-02/00.'), 0, 5, 'R');
-            $this->Cell(0, 5, utf8_decode(''), 0, 5, 'C');
-            $this->Cell(0, 5, utf8_decode('ESTE DOCUMENTO NO ES UN INSTRUMENTO LEGAL, ÚNICAMENTE AMPARA EL REGISTRO DE LA PLANTACIÓN DEL MAGUEY DENTRO DEL VIVERO.'), 0, 5);
+            $this->Cell(0, 5, compat_utf8_decode('FM-02/00.'), 0, 5, 'R');
+            $this->Cell(0, 5, compat_utf8_decode(''), 0, 5, 'C');
+            $this->Cell(0, 5, compat_utf8_decode('ESTE DOCUMENTO NO ES UN INSTRUMENTO LEGAL, ÚNICAMENTE AMPARA EL REGISTRO DE LA PLANTACIÓN DEL MAGUEY DENTRO DEL VIVERO.'), 0, 5);
         }
     }
 
@@ -203,11 +252,11 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    // aqui empieza
 	    setlocale(LC_ALL, "es_ES@euro", "Es_ES", "esp");
 	    $d = $fila['fecha1'];
-	    $fecha = strftime("%d-%b-%Y", strtotime($d));
+	    $fecha = compat_strftime("%d-%b-%Y", strtotime($d));
 	    $fecha1 = ucfirst(strtolower($fecha));
 	    //fecha1
 	    // $d = $fila['fecha2'];
-	    // $fechaa = strftime("%Y", strtotime($d));
+	    // $fechaa = compat_strftime("%Y", strtotime($d));
 	    // $fecha2 = ucfirst($fechaa);
 	    //fecha nueva
 	    $fechaD = date('Y');
@@ -218,11 +267,11 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->SetXY(26, 20);
 	    $pdf->SetFont('Helvetica', 'B', 23);
 	    //TITULO DE REGISTRI MAGUEY
-	    $pdf->Cell(0, 8, utf8_decode('REGISTRO DE MAGUEY'), 0, 5, 'C');
+	    $pdf->Cell(0, 8, compat_utf8_decode('REGISTRO DE MAGUEY'), 0, 5, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 13);
 	    $pdf->Ln(10);
 	    //IMPRIME EL ASOCIOADO: NO_ASOCIADO
-	    $pdf->Cell(0, 3, utf8_decode(strtoupper('ASOCIADO ')) . $filaClientes['no_cliente'], 0, 5, 'C');
+	    $pdf->Cell(0, 3, compat_utf8_decode(strtoupper('ASOCIADO ')) . $filaClientes['no_cliente'], 0, 5, 'C');
 	    $pdf->SetTextColor(238, 55, 60);
 	    $pdf->SetFont('Helvetica', 'B', 14);
 	    $pdf->Text(185, 28, strtoupper($fila['constancia']) . $fila['parajes'] . $fila['anio'], 0, 5, 'C');
@@ -230,7 +279,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->SetFont('Helvetica', 'B', 8);
 	    $pdf->Text(170, 34, strtoupper('No. de Predio: '), 0, 5, 'C');
 	    //IMPRIME LA FECHA DE EMISION Y LA OTRA LINEA IMPRIME LA VIGENCIA
-	    $pdf->Text(165, 38, utf8_decode('FECHA DE EMISIÓN: '), 0, 5, 'C');
+	    $pdf->Text(165, 38, compat_utf8_decode('FECHA DE EMISIÓN: '), 0, 5, 'C');
 	    $pdf->Text(178, 42, strtoupper('Vigencia:'), 0, 5, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 9);
 	    $pdf->Text(194, 34, $fila['parajes'], 0, 5, 'C');
@@ -241,14 +290,14 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	    $pdf->SetTextColor(0, 0, 0);
 	    $pdf->SetFont('Helvetica', 'B', 15);
-	    $pdf->MultiCell(185, 8, utf8_decode(strtoupper($filaClientes['clienten'])), 0, 'C');
+	    $pdf->MultiCell(185, 8, compat_utf8_decode(strtoupper($filaClientes['clienten'])), 0, 'C');
 
 
 	    if ($filaClientes['contador'] <= 82) {
 	        $pdf->Ln(3);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->MultiCell(131, 7, ucwords(strtolower(utf8_decode($filaClientes['domicilio']))), 1);
+	        $pdf->MultiCell(131, 7, ucwords(strtolower(compat_utf8_decode($filaClientes['domicilio']))), 1);
 	        $pdf->Ln(-7);
 	        $pdf->SetFont('Helvetica', 'B', 10);
 	        $pdf->MultiCell(45, 7, 'DOMICILIO FISCAL:', 1, 'C');
@@ -256,7 +305,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->Ln(3);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->MultiCell(131, 5, ucwords(strtolower(utf8_decode($filaClientes['domicilio']))), 1);
+	        $pdf->MultiCell(131, 5, ucwords(strtolower(compat_utf8_decode($filaClientes['domicilio']))), 1);
 	        $pdf->Ln(-10);
 	        $pdf->SetFont('Helvetica', 'B', 10);
 	        $pdf->MultiCell(45, 10, 'DOMICILIO FISCAL:', 1, 'C');
@@ -264,17 +313,17 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	    $pdf->Ln(0);
 	    $pdf->SetFont('Helvetica', 'B', 10);
-	    $pdf->Cell(22, 7, utf8_decode('TELÉFONO: '), 1, 0, 'C');
+	    $pdf->Cell(22, 7, compat_utf8_decode('TELÉFONO: '), 1, 0, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 9);
 	    $pdf->Cell(53, 7, $filaClientes['telefono'], 1, 0, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 10);
-	    $pdf->Cell(45, 7, utf8_decode('CORREO ELECTRÓNICO: '), 1, 0, 'C');
+	    $pdf->Cell(45, 7, compat_utf8_decode('CORREO ELECTRÓNICO: '), 1, 0, 'C');
 	    if ($filaClientes['correo'] == "") {
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(56, 7, utf8_decode('---'), 1, 0, 'C');
+	        $pdf->Cell(56, 7, compat_utf8_decode('---'), 1, 0, 'C');
 	    } else {
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(56, 7, utf8_decode($filaClientes['correo']), 1, 0, 'C');
+	        $pdf->Cell(56, 7, compat_utf8_decode($filaClientes['correo']), 1, 0, 'C');
 	    }
 
 	    // la consulta para datos del paraje
@@ -294,7 +343,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	        $pdf->SetFont('Helvetica', 'B', 10);
 	        //imprime la ubicacion del predio
-	        $pdf->Cell(45, 16, utf8_decode('UBICACIÓN DEL PREDIO'), 1, 0, 'C');
+	        $pdf->Cell(45, 16, compat_utf8_decode('UBICACIÓN DEL PREDIO'), 1, 0, 'C');
 	        $pdf->SetFont('Helvetica', 'B', 10);
 	        $pdf->Cell(65, 8, ucwords(strtolower('')), 1, 0, 'C');
 	        $pdf->Cell(66, 8, ucwords(strtolower('')), 1, 0, 'C');
@@ -302,8 +351,8 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(65, 5, utf8_decode($dato['paraje']), 0, 0, 'C');
-	        $pdf->Cell(66, 5, ucwords(strtolower(utf8_decode($dato['localidad']))), 0, 0, 'C');
+	        $pdf->Cell(65, 5, compat_utf8_decode($dato['paraje']), 0, 0, 'C');
+	        $pdf->Cell(66, 5, ucwords(strtolower(compat_utf8_decode($dato['localidad']))), 0, 0, 'C');
 
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
@@ -326,8 +375,8 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(65, 5, ucwords(strtolower(utf8_decode($dato['nombrem']))), 0, 0, 'C');
-	        $pdf->Cell(66, 5, ucwords(strtolower(utf8_decode($dato['nombree']))), 0, 0, 'C');
+	        $pdf->Cell(65, 5, ucwords(strtolower(compat_utf8_decode($dato['nombrem']))), 0, 0, 'C');
+	        $pdf->Cell(66, 5, ucwords(strtolower(compat_utf8_decode($dato['nombree']))), 0, 0, 'C');
 
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
@@ -342,17 +391,17 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	        $pdf->SetX(75);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(65, 12, utf8_decode('QUIEN MANIFIESTA SER PROPIETARIO DEL MAGUEY DESCRITO A CONTINUACIÓN, Y QUE SE ENCUENTRA EN EL'), 0, 0, 'C');
+	        $pdf->Cell(65, 12, compat_utf8_decode('QUIEN MANIFIESTA SER PROPIETARIO DEL MAGUEY DESCRITO A CONTINUACIÓN, Y QUE SE ENCUENTRA EN EL'), 0, 0, 'C');
 	        $pdf->Ln(5);
 	        $pdf->SetX(70);
-	        $pdf->Cell(66, 12, utf8_decode('PREDIO CUYOS DERECHOS DE EXPLOTACIÓN LE PERTENECE AL PRODUCTOR:'), 0, 0, 'C');
+	        $pdf->Cell(66, 12, compat_utf8_decode('PREDIO CUYOS DERECHOS DE EXPLOTACIÓN LE PERTENECE AL PRODUCTOR:'), 0, 0, 'C');
 	        $pdf->SetFont('Helvetica', 'B', 15);
 	        $pdf->Ln(7);
-	        $pdf->cell(176, 12, utf8_decode(strtoupper($fila['nombrep'])), 0, 0, 'C');
+	        $pdf->cell(176, 12, compat_utf8_decode(strtoupper($fila['nombrep'])), 0, 0, 'C');
 	        //ubicación del paraje
 	        $pdf->Ln(12);
 	        $pdf->SetFont('Helvetica', 'B', 10);
-	        $pdf->Cell(45, 16, utf8_decode('UBICACIÓN DEL PREDIO'), 1, 0, 'C');
+	        $pdf->Cell(45, 16, compat_utf8_decode('UBICACIÓN DEL PREDIO'), 1, 0, 'C');
 	        //paraje y localidad
 	        $pdf->SetFont('Helvetica', '', 10);
 	        $pdf->Cell(65, 8, ucwords(strtolower('')), 1, 0, 'C');
@@ -363,7 +412,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->SetFont('Helvetica', 'B', 9);
 	        //devuelve el dato de para y localidad
 	        $pdf->Cell(65, 5, $dato['paraje'], 0, 0, 'C');
-	        $pdf->Cell(66, 5, ucwords(strtolower(utf8_decode($dato['localidad']))), 0, 0, 'C');
+	        $pdf->Cell(66, 5, ucwords(strtolower(compat_utf8_decode($dato['localidad']))), 0, 0, 'C');
 
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
@@ -382,8 +431,8 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
 	        //$datos devuelve el nombre de la especia, y el nombre del municipio
-	        $pdf->Cell(65, 5, ucwords(strtolower(utf8_decode($dato['nombrem']))), 0, 0, 'C');
-	        $pdf->Cell(66, 5, ucwords(strtolower(utf8_decode($dato['nombree']))), 0, 0, 'C');
+	        $pdf->Cell(65, 5, ucwords(strtolower(compat_utf8_decode($dato['nombrem']))), 0, 0, 'C');
+	        $pdf->Cell(66, 5, ucwords(strtolower(compat_utf8_decode($dato['nombree']))), 0, 0, 'C');
 
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
@@ -397,7 +446,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->SetX(20);
 	    $pdf->Ln(8);
 	    $pdf->SetFont('Helvetica', 'B', 10);
-	    $pdf->Cell(45, 9, utf8_decode('SUPERFICIE'), 1, 0, 'C');
+	    $pdf->Cell(45, 9, compat_utf8_decode('SUPERFICIE'), 1, 0, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 9);
 	    //$datos devuelve la superficie que esta alamcenado en la base de datos
 	    $pdf->Cell(30, 9, $dato['superficie'], 1, 0, 'C');
@@ -409,10 +458,10 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->SetFont('Helvetica', 'B', 10);
 	    $pdf->Ln(1);
 	    $pdf->SetX(102);
-	    $pdf->Cell(31, 4.5, utf8_decode('COORDENADAS'), 0, 0, 'C');
+	    $pdf->Cell(31, 4.5, compat_utf8_decode('COORDENADAS'), 0, 0, 'C');
 	    $pdf->Ln(4);
 	    $pdf->SetX(101);
-	    $pdf->Cell(31, 4.5, utf8_decode('GEOGRÁFICAS'), 0, 0, 'C');
+	    $pdf->Cell(31, 4.5, compat_utf8_decode('GEOGRÁFICAS'), 0, 0, 'C');
 	    $pdf->Ln(-5);
 	    $pdf->SetX(140);
 	    $pdf->SetFont('Helvetica', 'B', 9);
@@ -442,17 +491,17 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->Cell(36, 5, '---', 1, 0, 'C');
 	    $pdf->Ln(5);
 	    $pdf->SetFont('Helvetica', 'B', 8);
-	    $pdf->Cell(140, 5, utf8_decode(strtoupper('Manejo sustentable de cultivos')), 1, 0, 'C');
+	    $pdf->Cell(140, 5, compat_utf8_decode(strtoupper('Manejo sustentable de cultivos')), 1, 0, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 8);
 	    $pdf->Cell(36, 5, '---', 1, 0, 'C');
 	    $pdf->Ln(5);
 	    $pdf->SetFont('Helvetica', 'B', 8);
-	    $pdf->Cell(140, 5, utf8_decode('PRESERVACIÓN DE POLINIZADORES Y VARIABILIDAD GENÉTICA DEL MAGUEY EN CULTIVOS'), 1, 0, 'C');
+	    $pdf->Cell(140, 5, compat_utf8_decode('PRESERVACIÓN DE POLINIZADORES Y VARIABILIDAD GENÉTICA DEL MAGUEY EN CULTIVOS'), 1, 0, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 8);
 	    $pdf->Cell(36, 5, '---', 1, 0, 'C');
 	    $pdf->Ln(5);
 	    $pdf->SetFont('Helvetica', 'B', 8);
-	    $pdf->Cell(140, 5, utf8_decode('MANEJO ORGÁNICO DEL CULTIVO DE MAGUEY'), 1, 0, 'C');
+	    $pdf->Cell(140, 5, compat_utf8_decode('MANEJO ORGÁNICO DEL CULTIVO DE MAGUEY'), 1, 0, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 8);
 	    $pdf->Cell(36, 5, '---', 1, 0, 'C');
 
@@ -461,14 +510,14 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->Ln(5);
 	    $pdf->SetFont('Helvetica', 'B', 15);
 	    $pdf->SetTextColor(0, 0, 0);
-	    $pdf->Cell(0, 12, utf8_decode('CARACTERÍSTICAS DEL MAGUEY'), 0, 5, 'C');
+	    $pdf->Cell(0, 12, compat_utf8_decode('CARACTERÍSTICAS DEL MAGUEY'), 0, 5, 'C');
 	    $pdf->SetFillColor(85, 107, 47);
 	    $pdf->SetTextColor(255, 255, 255);
 	    $pdf->SetFont('Helvetica', 'B', 8);
-	    $pdf->Cell(92, 5, utf8_decode('TIPO DE MAGUEY'), 1, 0, 'C', 1);
+	    $pdf->Cell(92, 5, compat_utf8_decode('TIPO DE MAGUEY'), 1, 0, 'C', 1);
 	    $pdf->Cell(25, 5, 'No. DE PLANTAS', 1, 0, 'C', 1);
-	    $pdf->Cell(21, 5, utf8_decode('EDAD (AÑOS)'), 1, 0, 'C', 1);
-	    $pdf->Cell(38, 5, utf8_decode('SISTEMA DE PLANTACIÓN'), 1, 0, 'C', 1);
+	    $pdf->Cell(21, 5, compat_utf8_decode('EDAD (AÑOS)'), 1, 0, 'C', 1);
+	    $pdf->Cell(38, 5, compat_utf8_decode('SISTEMA DE PLANTACIÓN'), 1, 0, 'C', 1);
 
 
 
@@ -492,9 +541,9 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        while ($resultado = mysqli_fetch_array($historial)) {
 	            $pdf->SetFont('Helvetica', 'B', 8);
 	            //imprime el resultado de la consulta que es el nombre el gen especia, la cantidad inicial, la edad y el regmaguey
-	            $pdf->Cell(52, 5, utf8_decode(strtoupper($resultado['nombre'])), 1, 0, 'C');
+	            $pdf->Cell(52, 5, compat_utf8_decode(strtoupper($resultado['nombre'])), 1, 0, 'C');
 	            $pdf->SetFont('Helvetica', 'BI');
-	            $pdf->Cell(40, 5, utf8_decode(ucfirst(strtolower($resultado['genespecie']))), 1, 0, 'C');
+	            $pdf->Cell(40, 5, compat_utf8_decode(ucfirst(strtolower($resultado['genespecie']))), 1, 0, 'C');
 	            $pdf->SetFont('Helvetica', 'B');
 	            $pdf->Cell(25, 5, $resultado['cantidadini'], 1, 0, 'C');
 	            $pdf->Cell(21, 5, $resultado['edad'], 1, 0, 'C');
@@ -513,17 +562,17 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->SetX(45);
 	        $pdf->Cell(88, 20, $pdf->Image("images/firmae.jpg", $pdf->GetX(), $pdf->GetY(), 40.78), 0, 0, 'C', false);
 	        $pdf->Ln(18);
-	        $pdf->cell(88, 5, utf8_decode('M. EN C. EFRAÍN PAREDES HERNÁNDEZ'), 0, 0, 'C');
-	        //$pdf->cell(88,5,utf8_decode('DR. EN C. HIPÓCRATES NOLASCO CANCINO'),0,0,'C');
-	        $pdf->cell(88, 5, utf8_decode('Q. B. ABELINO COHETERO VILLEGAS'), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode('M. EN C. EFRAÍN PAREDES HERNÁNDEZ'), 0, 0, 'C');
+	        //$pdf->cell(88,5,compat_utf8_decode('DR. EN C. HIPÓCRATES NOLASCO CANCINO'),0,0,'C');
+	        $pdf->cell(88, 5, compat_utf8_decode('Q. B. ABELINO COHETERO VILLEGAS'), 0, 0, 'C');
 	        $pdf->Ln(0);
 	        //se imprime las lineas de las firmas.
-	        $pdf->cell(88, 5, utf8_decode('_______________________________________'), 0, 0, 'C');
-	        $pdf->cell(88, 5, utf8_decode('_______________________________________'), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode('_______________________________________'), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode('_______________________________________'), 0, 0, 'C');
 	        $pdf->Ln(5);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->cell(88, 5, utf8_decode(strtoupper('Cordinador de la Unidad de Maguey')), 0, 0, 'C');
-	        $pdf->cell(88, 5, utf8_decode(strtoupper('Presidente')), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode(strtoupper('Cordinador de la Unidad de Maguey')), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode(strtoupper('Presidente')), 0, 0, 'C');
 	    }
 
 
@@ -627,8 +676,8 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	            $pdf->AddPage();
 	            $pdf->SetFont('Helvetica', 'B', 20);
-	            $pdf->Cell(0, 4, utf8_decode('PREDIO GEORREFERENCIADO'), 0, 5, 'C');
-	            $pdf->Cell(0, 4, utf8_decode('________________________________'), 0, 5, 'C');
+	            $pdf->Cell(0, 4, compat_utf8_decode('PREDIO GEORREFERENCIADO'), 0, 5, 'C');
+	            $pdf->Cell(0, 4, compat_utf8_decode('________________________________'), 0, 5, 'C');
 	            $pdf->Cell(140, 120);
 
 	            //$pdf->Image('estadosDOM/oaxaca.png', 90, 35, 40, 30, "PNG");
@@ -649,12 +698,12 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    // aqui empieza
 	    setlocale(LC_ALL, "es_ES@euro", "Es_ES", "esp");
 	    $d = $fila['fecha1'];
-	    $fecha = strftime("%d-%b-%Y", strtotime($d));
+	    $fecha = compat_strftime("%d-%b-%Y", strtotime($d));
 	    $fecha1 = ucfirst(strtolower($fecha));
 	    $fecha1 = str_replace(".", "", $fecha1);
 	    //fecha1
 	    // $d = $fila['fecha2'];
-	    // $fechaa = strftime("%Y", strtotime($d));
+	    // $fechaa = compat_strftime("%Y", strtotime($d));
 	    // $fecha2 = ucfirst($fechaa);
 
 	    $fechaD = date('Y');
@@ -664,18 +713,18 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->Ln(30);
 	    $pdf->SetXY(26, 20);
 	    $pdf->SetFont('Helvetica', 'B', 23);
-	    $pdf->Cell(0, 8, utf8_decode('REGISTRO DE VIVERO'), 0, 5, 'C');
+	    $pdf->Cell(0, 8, compat_utf8_decode('REGISTRO DE VIVERO'), 0, 5, 'C');
 	    $pdf->Ln(10);
 	    $pdf->SetFont('Helvetica', 'B', 13);
-	    //$pdf->Cell(0,3, utf8_decode(strtoupper('ASOCIADO ')).$filaClientes['no_cliente'],0,5, 'C');
-	    $pdf->Cell(0, 3, utf8_decode(strtoupper('No DE REGISTRO CRM ')) . $filaClientes['no_cliente'], 0, 5, 'C');
+	    //$pdf->Cell(0,3, compat_utf8_decode(strtoupper('ASOCIADO ')).$filaClientes['no_cliente'],0,5, 'C');
+	    $pdf->Cell(0, 3, compat_utf8_decode(strtoupper('No DE REGISTRO CRM ')) . $filaClientes['no_cliente'], 0, 5, 'C');
 	    $pdf->SetTextColor(238, 55, 60);
 	    $pdf->SetFont('Helvetica', 'B', 14);
 	    $pdf->Text(185, 28, strtoupper($fila['constancia']) . $fila['parajes'] . $fila['anio'], 0, 5, 'C');
 	    $pdf->SetTextColor(0, 0, 0);
 	    $pdf->SetFont('Helvetica', 'B', 8);
 	    $pdf->Text(170, 34, strtoupper('No. de Vivero: '), 0, 5, 'C');
-	    $pdf->Text(165, 38, utf8_decode('FECHA DE EMISIÓN: '), 0, 5, 'C');
+	    $pdf->Text(165, 38, compat_utf8_decode('FECHA DE EMISIÓN: '), 0, 5, 'C');
 	    $pdf->Text(178, 42, strtoupper('Vigencia:'), 0, 5, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 9);
 	    $pdf->Text(194, 34, $fila['parajes'], 0, 5, 'C');
@@ -686,14 +735,14 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	    $pdf->SetTextColor(0, 0, 0);
 	    $pdf->SetFont('Helvetica', 'B', 15);
-	    $pdf->MultiCell(185, 8, utf8_decode(strtoupper($filaClientes['clienten'])), 0, 'C');
+	    $pdf->MultiCell(185, 8, compat_utf8_decode(strtoupper($filaClientes['clienten'])), 0, 'C');
 
 
 	    if ($filaClientes['contador'] <= 82) {
 	        $pdf->Ln(3);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->MultiCell(131, 7, ucwords(strtolower(utf8_decode($filaClientes['domicilio']))), 1);
+	        $pdf->MultiCell(131, 7, ucwords(strtolower(compat_utf8_decode($filaClientes['domicilio']))), 1);
 	        $pdf->Ln(-7);
 	        $pdf->SetFont('Helvetica', 'B', 10);
 	        $pdf->MultiCell(45, 7, 'DOMICILIO FISCAL:', 1, 'C');
@@ -701,7 +750,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->Ln(3);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->MultiCell(131, 5, ucwords(strtolower(utf8_decode($filaClientes['domicilio']))), 1);
+	        $pdf->MultiCell(131, 5, ucwords(strtolower(compat_utf8_decode($filaClientes['domicilio']))), 1);
 	        $pdf->Ln(-10);
 	        $pdf->SetFont('Helvetica', 'B', 10);
 	        $pdf->MultiCell(45, 10, 'DOMICILIO FISCAL:', 1, 'C');
@@ -709,17 +758,17 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	    $pdf->Ln(0);
 	    $pdf->SetFont('Helvetica', 'B', 10);
-	    $pdf->Cell(22, 7, utf8_decode('TELÉFONO: '), 1, 0, 'C');
+	    $pdf->Cell(22, 7, compat_utf8_decode('TELÉFONO: '), 1, 0, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 9);
 	    $pdf->Cell(53, 7, $filaClientes['telefono'], 1, 0, 'C');
 	    $pdf->SetFont('Helvetica', 'B', 10);
-	    $pdf->Cell(45, 7, utf8_decode('CORREO ELECTRÓNICO: '), 1, 0, 'C');
+	    $pdf->Cell(45, 7, compat_utf8_decode('CORREO ELECTRÓNICO: '), 1, 0, 'C');
 	    if ($filaClientes['correo'] == "") {
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(56, 7, utf8_decode('---'), 1, 0, 'C');
+	        $pdf->Cell(56, 7, compat_utf8_decode('---'), 1, 0, 'C');
 	    } else {
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(56, 7, utf8_decode($filaClientes['correo']), 1, 0, 'C');
+	        $pdf->Cell(56, 7, compat_utf8_decode($filaClientes['correo']), 1, 0, 'C');
 	    }
 
 	    // la consulta para datos del paraje
@@ -738,7 +787,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->Ln(7);
 
 	        $pdf->SetFont('Helvetica', 'B', 10);
-	        $pdf->Cell(45, 16, utf8_decode('UBICACIÓN DEL PREDIO'), 1, 0, 'C');
+	        $pdf->Cell(45, 16, compat_utf8_decode('UBICACIÓN DEL PREDIO'), 1, 0, 'C');
 	        $pdf->SetFont('Helvetica', 'B', 10);
 	        $pdf->Cell(65, 8, ucwords(strtolower('')), 1, 0, 'C');
 	        $pdf->Cell(66, 8, ucwords(strtolower('')), 1, 0, 'C');
@@ -746,8 +795,8 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(65, 5, utf8_decode($dato['paraje']), 0, 0, 'C');
-	        $pdf->Cell(66, 5, ucwords(strtolower(utf8_decode($dato['localidad']))), 0, 0, 'C');
+	        $pdf->Cell(65, 5, compat_utf8_decode($dato['paraje']), 0, 0, 'C');
+	        $pdf->Cell(66, 5, ucwords(strtolower(compat_utf8_decode($dato['localidad']))), 0, 0, 'C');
 
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
@@ -770,8 +819,8 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(65, 5, ucwords(strtolower(utf8_decode($dato['nombrem']))), 0, 0, 'C');
-	        $pdf->Cell(66, 5, ucwords(strtolower(utf8_decode($dato['nombree']))), 0, 0, 'C');
+	        $pdf->Cell(65, 5, ucwords(strtolower(compat_utf8_decode($dato['nombrem']))), 0, 0, 'C');
+	        $pdf->Cell(66, 5, ucwords(strtolower(compat_utf8_decode($dato['nombree']))), 0, 0, 'C');
 
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
@@ -786,17 +835,17 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	        $pdf->SetX(75);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(65, 12, utf8_decode('QUIEN MANIFIESTA SER PROPIETARIO DEL MAGUEY DESCRITO A CONTINUACIÓN, Y QUE SE ENCUENTRA EN EL'), 0, 0, 'C');
+	        $pdf->Cell(65, 12, compat_utf8_decode('QUIEN MANIFIESTA SER PROPIETARIO DEL MAGUEY DESCRITO A CONTINUACIÓN, Y QUE SE ENCUENTRA EN EL'), 0, 0, 'C');
 	        $pdf->Ln(5);
 	        $pdf->SetX(70);
-	        $pdf->Cell(66, 12, utf8_decode('VIVERO CUYOS DERECHOS DE EXPLOTACIÓN LE PERTENECE AL PRODUCTOR:'), 0, 0, 'C');
+	        $pdf->Cell(66, 12, compat_utf8_decode('VIVERO CUYOS DERECHOS DE EXPLOTACIÓN LE PERTENECE AL PRODUCTOR:'), 0, 0, 'C');
 	        $pdf->SetFont('Helvetica', 'B', 15);
 	        $pdf->Ln(7);
-	        $pdf->cell(176, 12, utf8_decode(strtoupper($fila['nombrep'])), 0, 0, 'C');
+	        $pdf->cell(176, 12, compat_utf8_decode(strtoupper($fila['nombrep'])), 0, 0, 'C');
 	        //ubicación del paraje
 	        $pdf->Ln(12);
 	        $pdf->SetFont('Helvetica', 'B', 10);
-	        $pdf->Cell(45, 16, utf8_decode('UBICACIÓN DEL VIVERO'), 1, 0, 'C');
+	        $pdf->Cell(45, 16, compat_utf8_decode('UBICACIÓN DEL VIVERO'), 1, 0, 'C');
 	        //paraje y localidad
 	        $pdf->SetFont('Helvetica', '', 10);
 	        $pdf->Cell(65, 8, ucwords(strtolower('')), 1, 0, 'C');
@@ -806,7 +855,7 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
 	        $pdf->Cell(65, 5, $dato['paraje'], 0, 0, 'C');
-	        $pdf->Cell(66, 5, ucwords(strtolower(utf8_decode($dato['localidad']))), 0, 0, 'C');
+	        $pdf->Cell(66, 5, ucwords(strtolower(compat_utf8_decode($dato['localidad']))), 0, 0, 'C');
 
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
@@ -824,8 +873,8 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->Cell(65, 5, ucwords(strtolower(utf8_decode($dato['nombrem']))), 0, 0, 'C');
-	        $pdf->Cell(66, 5, ucwords(strtolower(utf8_decode($dato['nombree']))), 0, 0, 'C');
+	        $pdf->Cell(65, 5, ucwords(strtolower(compat_utf8_decode($dato['nombrem']))), 0, 0, 'C');
+	        $pdf->Cell(66, 5, ucwords(strtolower(compat_utf8_decode($dato['nombree']))), 0, 0, 'C');
 
 	        $pdf->Ln(0);
 	        $pdf->SetX(65);
@@ -841,10 +890,10 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->SetFont('Helvetica', 'B', 10);
 	    $pdf->Ln(1);
 	    $pdf->SetX(26);
-	    $pdf->Cell(31, 4.5, utf8_decode('COORDENADAS'), 0, 0, 'C');
+	    $pdf->Cell(31, 4.5, compat_utf8_decode('COORDENADAS'), 0, 0, 'C');
 	    $pdf->Ln(4);
 	    $pdf->SetX(25);
-	    $pdf->Cell(31, 4.5, utf8_decode('GEOGRÁFICAS'), 0, 0, 'C');
+	    $pdf->Cell(31, 4.5, compat_utf8_decode('GEOGRÁFICAS'), 0, 0, 'C');
 	    $pdf->Ln(-5);
 	    $pdf->SetX(65);
 	    $pdf->SetFont('Helvetica', 'B', 9);
@@ -866,15 +915,15 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->Ln(5);
 	    $pdf->SetFont('Helvetica', 'B', 15);
 	    $pdf->SetTextColor(0, 0, 0);
-	    $pdf->Cell(0, 12, utf8_decode('CARACTERÍSTICAS DEL MAGUEY'), 0, 5, 'C');
+	    $pdf->Cell(0, 12, compat_utf8_decode('CARACTERÍSTICAS DEL MAGUEY'), 0, 5, 'C');
 	    $pdf->SetFillColor(85, 107, 47);
 	    $pdf->SetTextColor(255, 255, 255);
 	    $pdf->SetFont('Helvetica', 'B', 8);
-	    $pdf->Cell(60, 5, utf8_decode('TIPO DE MAGUEY'), 1, 0, 'C', 1);
+	    $pdf->Cell(60, 5, compat_utf8_decode('TIPO DE MAGUEY'), 1, 0, 'C', 1);
 	    $pdf->Cell(25, 5, 'No. DE PLANTAS', 1, 0, 'C', 1);
-	    $pdf->Cell(29, 5, utf8_decode('FECHA DE SIEMBRA'), 1, 0, 'C', 1);
-	    $pdf->Cell(30, 5, utf8_decode('ORIGEN'), 1, 0, 'C', 1);
-	    $pdf->Cell(38, 5, utf8_decode('SISTEMA DE PLANTACIÓN'), 1, 0, 'C', 1);
+	    $pdf->Cell(29, 5, compat_utf8_decode('FECHA DE SIEMBRA'), 1, 0, 'C', 1);
+	    $pdf->Cell(30, 5, compat_utf8_decode('ORIGEN'), 1, 0, 'C', 1);
+	    $pdf->Cell(38, 5, compat_utf8_decode('SISTEMA DE PLANTACIÓN'), 1, 0, 'C', 1);
 
 
 
@@ -898,21 +947,21 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	    setlocale(LC_ALL, "es_ES@euro", "Es_ES", "esp");
 	    $ds = $result['fecha_siembra'];
-	    $fechas = strftime("%d-%b-%Y", strtotime($ds));
+	    $fechas = compat_strftime("%d-%b-%Y", strtotime($ds));
 	    $fechasi = ucfirst(strtolower($fechas));
-	    $cientifico = utf8_decode(ucfirst(strtolower($result['genespecie'])));
+	    $cientifico = compat_utf8_decode(ucfirst(strtolower($result['genespecie'])));
 	    $cien = $cientifico;
 
 	    for ($i = 0; $i < $numfilas; $i++) {
 
 	        while ($resultado = mysqli_fetch_array($historial)) {
 	            $pdf->SetFont('Helvetica', 'BI', 8);
-	            $pdf->Cell(60, 5, utf8_decode(strtoupper($resultado['nombre'])) . " (" . utf8_decode(ucfirst(strtolower($resultado['genespecie']))) . ")", 1, 0, 'C');
+	            $pdf->Cell(60, 5, compat_utf8_decode(strtoupper($resultado['nombre'])) . " (" . compat_utf8_decode(ucfirst(strtolower($resultado['genespecie']))) . ")", 1, 0, 'C');
 	            $pdf->SetFont('Helvetica', 'BI');
-	            //$pdf->Cell(40,5, utf8_decode(ucfirst(strtolower($resultado['genespecie']))).$cientifico,1,0,'C');
+	            //$pdf->Cell(40,5, compat_utf8_decode(ucfirst(strtolower($resultado['genespecie']))).$cientifico,1,0,'C');
 	            $pdf->SetFont('Helvetica', 'B');
 	            $pdf->Cell(25, 5, $resultado['cantidadini'], 1, 0, 'C');
-	            $fechas = strftime("%d-%b-%Y", strtotime($resultado['fecha_siembra']));
+	            $fechas = compat_strftime("%d-%b-%Y", strtotime($resultado['fecha_siembra']));
 	            $fechasi = ucfirst(strtolower($fechas));
 	            $pdf->Cell(29, 5, $fechasi, 1, 0, 'C');
 	            $pdf->Cell(30, 5, strtoupper($resultado['origen']), 1, 0, 'C');
@@ -932,16 +981,16 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	        $pdf->SetX(45);
 	        $pdf->Cell(88, 20, $pdf->Image("images/firmae.jpg", $pdf->GetX(), $pdf->GetY(), 40.78), 0, 0, 'C', false);
 	        $pdf->Ln(18);
-	        $pdf->cell(88, 5, utf8_decode('M. EN C. EFRAÍN PAREDES HERNÁNDEZ'), 0, 0, 'C');
-	        //$pdf->cell(88,5,utf8_decode('DR. EN C. HIPÓCRATES NOLASCO CANCINO'),0,0,'C');
-	        $pdf->cell(88, 5, utf8_decode('Q. B. ABELINO COHETERO VILLEGAS'), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode('M. EN C. EFRAÍN PAREDES HERNÁNDEZ'), 0, 0, 'C');
+	        //$pdf->cell(88,5,compat_utf8_decode('DR. EN C. HIPÓCRATES NOLASCO CANCINO'),0,0,'C');
+	        $pdf->cell(88, 5, compat_utf8_decode('Q. B. ABELINO COHETERO VILLEGAS'), 0, 0, 'C');
 	        $pdf->Ln(0);
-	        $pdf->cell(88, 5, utf8_decode('_______________________________________'), 0, 0, 'C');
-	        $pdf->cell(88, 5, utf8_decode('_______________________________________'), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode('_______________________________________'), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode('_______________________________________'), 0, 0, 'C');
 	        $pdf->Ln(5);
 	        $pdf->SetFont('Helvetica', 'B', 9);
-	        $pdf->cell(88, 5, utf8_decode(strtoupper('Cordinador de la Unidad de Maguey')), 0, 0, 'C');
-	        $pdf->cell(88, 5, utf8_decode(strtoupper('Presidente')), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode(strtoupper('Cordinador de la Unidad de Maguey')), 0, 0, 'C');
+	        $pdf->cell(88, 5, compat_utf8_decode(strtoupper('Presidente')), 0, 0, 'C');
 	    }
 
 
@@ -975,8 +1024,8 @@ while($filaP = mysqli_fetch_object($resulP)) {
 
 	    $pdf->AddPage();
 	    $pdf->SetFont('Helvetica', 'B', 20);
-	    $pdf->Cell(0, 4, utf8_decode('VIVERO REGISTRADO'), 0, 5, 'C');
-	    $pdf->Cell(0, 4, utf8_decode('________________________________'), 0, 5, 'C');
+	    $pdf->Cell(0, 4, compat_utf8_decode('VIVERO REGISTRADO'), 0, 5, 'C');
+	    $pdf->Cell(0, 4, compat_utf8_decode('________________________________'), 0, 5, 'C');
 	    $pdf->Cell(140, 120);
 
 	    //$pdf->Image('estadosDOM/oaxaca.png', 90, 35, 40, 30, "PNG");
@@ -989,7 +1038,9 @@ while($filaP = mysqli_fetch_object($resulP)) {
 	    $pdf->Image("../" . $result['foto1'], 110, 125, 90, 90);
 	}
 
-	ob_end_clean();
+	if (ob_get_level() > 0) {
+		ob_end_clean();
+	}
 	//$pdf->Output("RegistroVivero".$paraje.".pdf",'D');
 
 	$conexion->close();

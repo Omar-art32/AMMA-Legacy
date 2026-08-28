@@ -1,11 +1,57 @@
 <?php
+declare(strict_types=1);
+
 //header('Content-Type: text/html; charset=UTF-8');
 //include_once("Polyline.php");
 //require('fpdf/fpdf.php');
-require('../../librerias/fpdf/fpdf.php');
+require_once __DIR__ . '/../../vendor/autoload.php';
 include("../../common/conexion.php");
 $conexion->set_charset("utf8");
 header('Content-Type: text/html; charset=UTF-8');
+
+/**
+ *  1) utf8_decode() esta OBSOLETA desde PHP 8.2 (se elimina en PHP 9).
+ *     compat_utf8_decode() reproduce EXACTAMENTE el mismo resultado
+ *     (conversion UTF-8 -> ISO-8859-1) usando mb_convert_encoding(),
+ *     sin generar el aviso "Deprecated".
+ *
+ *  2) strftime() esta OBSOLETA desde PHP 8.1 (se elimina en PHP 9).
+ *     compat_strftime() reproduce el mismo formato de fecha en espanol
+ *     que usaba este reporte ("%d-%b-%Y" y "%Y"), sin depender del
+ *     locale del sistema operativo (setlocale ya no es necesario, pero
+ *     se deja la llamada original para no modificar la logica existente).
+ *
+ *  Ambas funciones se definen solo si no existen, para poder incluir
+ *  este archivo mas de una vez sin provocar errores de redeclaracion.
+ */
+if (!function_exists('compat_utf8_decode')) {
+	function compat_utf8_decode(?string $string): string
+	{
+		// Mismo comportamiento que el nativo utf8_decode(): UTF-8 -> ISO-8859-1
+		return mb_convert_encoding((string) $string, 'ISO-8859-1', 'UTF-8');
+	}
+}
+
+if (!function_exists('compat_strftime')) {
+	function compat_strftime(string $format, $timestamp = null): string
+	{
+		static $meses = array('ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic');
+		$timestamp = ($timestamp === null) ? time() : (int) $timestamp;
+		$dt = new DateTime('@' . $timestamp);
+		$dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+		switch ($format) {
+			case '%d-%b-%Y':
+				// Igual que el formato usado por strftime en este reporte
+				return sprintf('%02d-%s-%d', (int) $dt->format('d'), $meses[(int) $dt->format('n') - 1], (int) $dt->format('Y'));
+			case '%Y':
+				return $dt->format('Y');
+			default:
+				return $dt->format('Y-m-d');
+		}
+	}
+}
+
+#[AllowDynamicProperties] // Necesario en PHP 8.2+ porque esta clase asigna propiedades dinamicas (encrypted, HREF, tdbegin, etc.) que FPDF no declara
 class PDF extends FPDF
 {
 var $widths;
@@ -16,7 +62,7 @@ var $aligns;
 // }
 
 function __construct($orientation='P',$unit='mm',$format='A4') {                  
-		parent::FPDF($orientation,$unit,$format);
+		parent::__construct($orientation,$unit,$format);
 
 		//Initialization
 		////////Protection part/////////////////////////////////////////////////////////////
@@ -39,12 +85,11 @@ function __construct($orientation='P',$unit='mm',$format='A4') {
 
 		$this->oldx=0;
 		$this->oldy=0;
-		$this->AddFont('Calibri','','CalibriRegular.php');
-		$this->AddFont('Calibri-Bold','','CalibriBold.php');
-		$this->AddFont('Calibri-BoldItalic','','CalibriBoldItalic.php');
-		$this->AddFont('Calibri-Italic','','CalibriItalic.php');
-		$this->AddFont('Calibri-Light','','CalibriLight.php');
-		$this->AddFont('Calibri-LightItalic','','CalibriLightItalic.php');
+		$fontDir = __DIR__ . '/../../vendor/setasign/fpdf/makefont/';
+
+		$this->AddFont('Calibri', '', 'CalibriRegular.json', $fontDir);
+		$this->AddFont('Calibri-Bold', '', 'calibri-bold.json', $fontDir);
+		$this->AddFont('Calibri-BoldItalic', '', 'calibri-bold-italic.json', $fontDir);
 		$this->fontlist=array("Calibri","Times","times","courier","helvetica","symbol");
 		$this->issetfont=false;
 		$this->issetcolor=false;
@@ -160,18 +205,18 @@ function Footer()
 	$this->SetFont('Calibri-BoldItalic','',9);
 		$this->AliasNbPages();
 		$this->SetY(-30);
-    $this->Cell(0,5,utf8_decode('Página').$this->PageNo().'/{nb}',0,5,'L');
+    $this->Cell(0,5,compat_utf8_decode('Página').$this->PageNo().'/{nb}',0,5,'L');
     $this->SetY(-21);
     if(isset($_GET['tipo']) && $_GET['tipo'] == "V" ) 
-    	$this->Cell(0,5,Utf8_decode('FOR-UM-05/01.'),0,5,'R');
+    	$this->Cell(0,5,compat_utf8_decode('FOR-UM-05/01.'),0,5,'R');
     else
-       $this->Cell(0,5,Utf8_decode('FOR-UM-03/01.'),0,5,'R');
+       $this->Cell(0,5,compat_utf8_decode('FOR-UM-03/01.'),0,5,'R');
 
 
 
 	$this->SetY(-25);
-	$this->Cell(47,5, utf8_decode('--> Llenar solo vendedor' ),0,5,'C');
-	$this->Cell(50,6, utf8_decode('--> Llenar solo comprador'),0,5,'C');
+	$this->Cell(47,5, compat_utf8_decode('--> Llenar solo vendedor' ),0,5,'C');
+	$this->Cell(50,6, compat_utf8_decode('--> Llenar solo comprador'),0,5,'C');
 	$this->SetLineWidth(0.1);
 	$this->SetDrawColor(33,33,33);
 	$this->SetFillColor(23,97,66);
@@ -186,9 +231,9 @@ function Footer()
 	//
 	$this->SetFont('Calibri-Bold','',7);
 	$this->Ln(-1);
-	$this->Cell(0,5,utf8_decode('Av. Universidad N° 312-A, Fracc. Trinidad de las Huertas, Oaxaca de Juárez, C. P. 68120, Oaxaca, México'),0,5,'C');
+	$this->Cell(0,5,compat_utf8_decode('Av. Universidad N° 312-A, Fracc. Trinidad de las Huertas, Oaxaca de Juárez, C. P. 68120, Oaxaca, México'),0,5,'C');
 	$this->Ln(-1);
-	$this->Cell(0,5,utf8_decode('www.amma.org.mx   maguey@amma.org.mx  Teléfonos: 951 672 9399, 951 672 9474'),0,5,'C');
+	$this->Cell(0,5,compat_utf8_decode('www.amma.org.mx   maguey@amma.org.mx  Teléfonos: 951 672 9399, 951 672 9474'),0,5,'C');
 }
 
 }//class PDF extends FPDF
@@ -264,7 +309,7 @@ where p.id_paraje='$paraje'";
 	
 
 	$pdf=new PDF('P','mm','Letter');
-	$pdf->Open();
+	//$pdf->Open();
 
 	$numini = ($tipo == "P") ? 2: 3;
 	$strConsulta = "SELECT CONCAT('G',LPAD(cextracciones.id,5,'0')) as id, LPAD(cextracciones.id,5,'0') cid,  
@@ -273,7 +318,7 @@ where p.id_paraje='$paraje'";
 	$extracciones= $conexion->query($strConsulta);
 
 	// $d = $fila['fecha2'];
-	// $fechaaa = strftime("%Y",strtotime($d));
+	// $fechaaa = compat_strftime("%Y",strtotime($d));
 	// $fecha2 = ucfirst($fechaaa);
 	// $fecha2 = $d;
 
@@ -290,7 +335,7 @@ where p.id_paraje='$paraje'";
 	// aqui empieza
 	setlocale(LC_ALL,"es_ES@euro","Es_ES","esp");
 // $d = $fila['fecha1'];
-// $fecha = strftime("%d-%b-%Y", strtotime($d));
+// $fecha = compat_strftime("%d-%b-%Y", strtotime($d));
 // $fecha1 = ucfirst(strtolower($fecha));
 //fecha1
 	if($tipo == "V") {
@@ -305,7 +350,7 @@ where p.id_paraje='$paraje'";
 		$fechaN = date('d-m-Y', $fechaN);
 	}
 
-//$fechaa = strftime("%Y", strtotime($d));
+//$fechaa = compat_strftime("%Y", strtotime($d));
 
 	//termina fecha
 
@@ -319,16 +364,16 @@ where p.id_paraje='$paraje'";
 
 	$pdf->SetFont('Calibri-Bold','',25);
 	if($tipo == "P") 
-		$pdf->Cell(0,8, utf8_decode('GUÍA DE MAGUEY'),0,5, 'C');
+		$pdf->Cell(0,8, compat_utf8_decode('GUÍA DE MAGUEY'),0,5, 'C');
 	else
-		$pdf->Cell(0,8, utf8_decode('GUÍA DE PLÁNTULAS'),0,5, 'C');
+		$pdf->Cell(0,8, compat_utf8_decode('GUÍA DE PLÁNTULAS'),0,5, 'C');
 	$pdf->SetTextColor(238,55,60);
 	$pdf->SetFont('Calibri','',14);
 	$pdf->Text(175,30,strtoupper($extraccion['id']).'/'.strtoupper($fila['parajes']),0,5,'C');
 	//$pdf->Text(179,30,strtoupper($extraccion['id']),0,5,'C');
 	$pdf->SetTextColor(33,33,33);
 	$pdf->SetFont('Calibri-Bold','',10);
-	$pdf->Text(175,35,utf8_decode('VIGENCIA:'),0,5,'C');
+	$pdf->Text(175,35,compat_utf8_decode('VIGENCIA:'),0,5,'C');
 	$pdf->SetFont('Calibri-Bold','',10);
 	if($tipo == "P") 
 		$pdf->Text(191,35,'INDEFINIDA',0,5,'C');
@@ -351,7 +396,7 @@ where p.id_paraje='$paraje'";
 	$pdf->SetFont('Calibri-Bold','',9);
 	$pdf->Cell(25,7,strtoupper($fila['parajes']),0,0,'C');
 	$pdf->SetFont('Calibri-Bold','',10);
-	$pdf->Cell(26,7,utf8_decode('No. DE EXTRACCIÓN: '),0,0);
+	$pdf->Cell(26,7,compat_utf8_decode('No. DE EXTRACCIÓN: '),0,0);
 	$pdf->SetFont('Calibri-Bold','',9);
 	$pdf->Cell(23,7,strtoupper($extraccion['cid']),0,0,'C');
 	$pdf->SetFont('Calibri-Bold','',10);
@@ -375,13 +420,13 @@ where p.id_paraje='$paraje'";
 		///
 	$pdf->Ln(7);
 	$pdf->SetFont('Calibri-Bold','',10);
-	$pdf->Cell(22,7,utf8_decode('NOMBRE: '),0,0);
+	$pdf->Cell(22,7,compat_utf8_decode('NOMBRE: '),0,0);
 	$pdf->SetFont('Calibri-Bold','',9);
 	
-	$pdf->Cell(150,7,strtoupper(utf8_decode($fila['nombrep'])),0,5,'C');
+	$pdf->Cell(150,7,strtoupper(compat_utf8_decode($fila['nombrep'])),0,5,'C');
 	$pdf->Ln(-7);
 	$pdf->SetFont('Calibri','',10);
-	$pdf->Cell(22,7,utf8_decode(''),0,0);
+	$pdf->Cell(22,7,compat_utf8_decode(''),0,0);
 	$pdf->SetFont('Calibri','',9);
 	$pdf->Cell(153,7,'___________________________________________________________________________________________',0,5,'C');
 
@@ -391,22 +436,22 @@ where p.id_paraje='$paraje'";
 	$pdf->Ln(2);
 	$pdf->SetFont('Calibri-Bold','',10);
 	if($tipo == "P") 
-		$pdf->Cell(44,7,utf8_decode('NOMBRE DE PREDIO: '),0,0);
+		$pdf->Cell(44,7,compat_utf8_decode('NOMBRE DE PREDIO: '),0,0);
 	else
-		$pdf->Cell(44,7,utf8_decode('NOMBRE DE VIVERO: '),0,0);
+		$pdf->Cell(44,7,compat_utf8_decode('NOMBRE DE VIVERO: '),0,0);
 	$pdf->SetFont('Calibri-Bold','',9);
-	$pdf->Cell(100,7,strtoupper(utf8_decode($fila['paraje'])),0,5,'C');
+	$pdf->Cell(100,7,strtoupper(compat_utf8_decode($fila['paraje'])),0,5,'C');
 	$pdf->Ln(-7);
 	$pdf->SetFont('Calibri','',10);
-	$pdf->Cell(44,7,utf8_decode(''),0,0);
+	$pdf->Cell(44,7,compat_utf8_decode(''),0,0);
 	$pdf->SetFont('Calibri','',9);
 	$pdf->Cell(131,7,'_______________________________________________________________________________',0,5,'C');
 	$pdf->Ln(1);
 	$pdf->SetFont('Calibri-Bold','',10);
 	if($tipo == "P")
-		$pdf->Cell(33,7,utf8_decode('FECHA DE CORTE: '),0,0);
+		$pdf->Cell(33,7,compat_utf8_decode('FECHA DE CORTE: '),0,0);
 	else
-		$pdf->Cell(33,7,utf8_decode('FECHA DE SALIDA: '),0,0);
+		$pdf->Cell(33,7,compat_utf8_decode('FECHA DE SALIDA: '),0,0);
 	$pdf->SetFont('Calibri','',9);
 	$pdf->Cell(141,7,'_______________________',0,5);
 
@@ -425,25 +470,25 @@ where p.id_paraje='$paraje'";
 	$pdf->Ln(3);
 	/*$pdf->SetFont('Calibri-Bold','',10);
 	$pdf->SetDrawColor(33,33,33);// color a las lineas de la tabla
-	$pdf->Cell(0,5, utf8_decode('ATRIBUTOS DE LA TIERRA'),0,5);
+	$pdf->Cell(0,5, compat_utf8_decode('ATRIBUTOS DE LA TIERRA'),0,5);
 	$pdf->Ln(2);
 	$pdf->SetFont('Calibri-Bold','',7);
-	$pdf->Cell(67,8,utf8_decode('MANEJO SUSTENTABLE DE MAGUEY SILVESTRE'),1,0);
+	$pdf->Cell(67,8,compat_utf8_decode('MANEJO SUSTENTABLE DE MAGUEY SILVESTRE'),1,0);
 	$pdf->SetFont('Calibri','',7);
 	$pdf->Cell(9,8,'---',1,0,'C');
 	$pdf->SetFont('Calibri-Bold','',7);
-	$pdf->MultiCell(90,4,utf8_decode('PRESERVACIÓN DE POLINIZADORES Y VARIABILIDAD GENÉTICA DEL MAGUEY EN CULTIVOS'),1);
+	$pdf->MultiCell(90,4,compat_utf8_decode('PRESERVACIÓN DE POLINIZADORES Y VARIABILIDAD GENÉTICA DEL MAGUEY EN CULTIVOS'),1);
 	$pdf->Ln(-8);
 	$pdf->SetX(181);
 	$pdf->SetFont('Calibri-Bold','',7);
 	$pdf->Cell(9,8,'---',1,0,'C');
 	$pdf->Ln(8);
 	$pdf->SetFont('Calibri-Bold','',7);
-	$pdf->Cell(67,8,utf8_decode('MANEJO SUSTENTABLE DE CULTIVOS DE LADERAS'),1,0);
+	$pdf->Cell(67,8,compat_utf8_decode('MANEJO SUSTENTABLE DE CULTIVOS DE LADERAS'),1,0);
 	$pdf->SetFont('Calibri-Bold','',7);
 	$pdf->Cell(9,8,'---',1,0,'C');
 	$pdf->SetFont('Calibri-Bold','',7);
-	$pdf->Cell(90,8,utf8_decode('MANEJO ORGÁNICO DEL CULTIVO DE MAGUEY'),1,0);
+	$pdf->Cell(90,8,compat_utf8_decode('MANEJO ORGÁNICO DEL CULTIVO DE MAGUEY'),1,0);
 	$pdf->SetFont('Calibri-Bold','',7);
 	$pdf->Cell(9,8,'---',1,0,'C');
 	$pdf->Ln(7);
@@ -452,23 +497,23 @@ where p.id_paraje='$paraje'";
 	$pdf->SetFont('Calibri-Bold','',10);
 	$pdf->SetTextColor(33,33,33);
 	if($tipo == "P")
-		$pdf->Cell(0,5, utf8_decode('ESPECIFICACIONES DEL MAGUEY'), 0,5,'C');
+		$pdf->Cell(0,5, compat_utf8_decode('ESPECIFICACIONES DEL MAGUEY'), 0,5,'C');
 	else
-		$pdf->Cell(0,5, utf8_decode('ESPECIFICACIONES DE LA PLÁNTULA'), 0,5,'C');
+		$pdf->Cell(0,5, compat_utf8_decode('ESPECIFICACIONES DE LA PLÁNTULA'), 0,5,'C');
 	$pdf->Ln(2);
 	$pdf->SetTextColor(33,33,33);
 	$pdf->SetDrawColor(33,33,33);// color a las lineas de la tabla
 	$pdf->SetFillColor(255,255,255);
 	$pdf->SetFont('Calibri-Bold','',7.5);
 	$pdf->SetLineWidth(0.1);
-	$pdf->Cell(53,9,utf8_decode('MAGUEY (NOMBRE COMÚN)'),1,0,'C',1);
-	$pdf->Cell(41,9,utf8_decode('AGAVE (NOMBRE CIENTÍFICO)'),1,0,'C',1);
-	$pdf->Cell(35,9,utf8_decode('SISTEMA DE PLANTACIÓN'),1,0,'C',1);
+	$pdf->Cell(53,9,compat_utf8_decode('MAGUEY (NOMBRE COMÚN)'),1,0,'C',1);
+	$pdf->Cell(41,9,compat_utf8_decode('AGAVE (NOMBRE CIENTÍFICO)'),1,0,'C',1);
+	$pdf->Cell(35,9,compat_utf8_decode('SISTEMA DE PLANTACIÓN'),1,0,'C',1);
 	if($tipo == "P") {
-		$pdf->Cell(23,9,utf8_decode('EDAD (AÑOS)'),1,0,'C',1);
-		$pdf->Cell(24,9,utf8_decode('No. DE PIÑAS'),1,0,'C',1);
+		$pdf->Cell(23,9,compat_utf8_decode('EDAD (AÑOS)'),1,0,'C',1);
+		$pdf->Cell(24,9,compat_utf8_decode('No. DE PIÑAS'),1,0,'C',1);
 	} else
-		$pdf->Cell(40,9,utf8_decode('PLÁNTULAS'),1,0,'C',1);
+		$pdf->Cell(40,9,compat_utf8_decode('PLÁNTULAS'),1,0,'C',1);
 
 	$pdf->Ln(9);
 
@@ -500,13 +545,13 @@ where p.id_paraje='$paraje'";
     while($resultado = mysqli_fetch_array($historial)) {
 		$pdf->SetLineWidth(0.1);
 		$pdf->SetFont('Calibri-Bold','',7.5);
-		$pdf->Cell(53,5,utf8_decode($resultado['nombre']),1,0,'C');
+		$pdf->Cell(53,5,compat_utf8_decode($resultado['nombre']),1,0,'C');
 		$pdf->SetFont('Calibri-BoldItalic','',8);
-		$pdf->Cell(41,5,utf8_decode(ucfirst(strtolower($resultado['genespecie']))),1,0,'C');
+		$pdf->Cell(41,5,compat_utf8_decode(ucfirst(strtolower($resultado['genespecie']))),1,0,'C');
 		$pdf->SetFont('Calibri-Bold','','7.5');
-		$pdf->Cell(35,5,utf8_decode(strtoupper($resultado['regmaguey'])),1,0,'C');
+		$pdf->Cell(35,5,compat_utf8_decode(strtoupper($resultado['regmaguey'])),1,0,'C');
 		if($tipo == "P") {
-			$pdf->Cell(23,5,utf8_decode(strtoupper($resultado['edad'])),1,0,'C');
+			$pdf->Cell(23,5,compat_utf8_decode(strtoupper($resultado['edad'])),1,0,'C');
 			$pdf->SetFont('calibri','');
 			$pdf->Cell(24,5,'',1,0,'C');
 		} else
@@ -549,16 +594,16 @@ where p.id_paraje='$paraje'";
 	$pdf->Ln(8);
 	if($tipo == "P") {
 		$pdf->SetFont('Calibri-Bold','',10);
-		$pdf->Cell(57,7,utf8_decode('N° DE CERTIFICADO DE PRODUCTOR: '),0,0);
+		$pdf->Cell(57,7,compat_utf8_decode('N° DE CERTIFICADO DE PRODUCTOR: '),0,0);
 		$pdf->SetFont('Calibri','',9);
 		$pdf->Cell(119,7,'______________________________',0,5);
 	}
 	$pdf->Ln(3);
 	$pdf->SetFont('Calibri-Bold','',10);
 	if($tipo == "P") 
-		$pdf->Cell(57,7,utf8_decode('FECHA DE INGRESO A FÁBRICA: '),0,0);
+		$pdf->Cell(57,7,compat_utf8_decode('FECHA DE INGRESO A FÁBRICA: '),0,0);
 	else
-		$pdf->Cell(57,7,utf8_decode('FECHA DE RECEPCIÓN: '),0,0);
+		$pdf->Cell(57,7,compat_utf8_decode('FECHA DE RECEPCIÓN: '),0,0);
 	$pdf->SetFont('Calibri','',9);
 	$pdf->Cell(119,7,'______________________________',0,5);
 	$pdf->Ln(1);
@@ -572,7 +617,7 @@ where p.id_paraje='$paraje'";
 	$pdf->Cell(91,7,'___________________________________________________',0,0,'C');
 	$pdf->Ln(5);
 	$pdf->SetFont('Calibri-Bold','',10);
-	$pdf->Cell(45,7,utf8_decode('DOMICILIO DE ENTREGA: '),0,0);
+	$pdf->Cell(45,7,compat_utf8_decode('DOMICILIO DE ENTREGA: '),0,0);
 	$pdf->SetFont('Calibri','',9);
 	$pdf->Cell(131,7,'__________________________________________________________________________',0,5,'C');
 
@@ -594,9 +639,9 @@ where p.id_paraje='$paraje'";
 	$pdf->SetFont('Calibri-Bold','',10);
 	$pdf->SetTextColor(33,33,33);
 	if($tipo == "P")
-		$pdf->Cell(0,5, utf8_decode('ESPECIFICACIONES DEL MAGUEY'), 0,5,'C');
+		$pdf->Cell(0,5, compat_utf8_decode('ESPECIFICACIONES DEL MAGUEY'), 0,5,'C');
 	else
-		$pdf->Cell(0,5, utf8_decode('ESPECIFICACIONES DE LA PLÁNTULA'), 0,5,'C');
+		$pdf->Cell(0,5, compat_utf8_decode('ESPECIFICACIONES DE LA PLÁNTULA'), 0,5,'C');
 	
 	$pdf->Ln(2);
 	$pdf->SetTextColor(33,33,33);
@@ -604,14 +649,14 @@ where p.id_paraje='$paraje'";
 	$pdf->SetDrawColor(33,33,33);// color a las lineas de la tabla
 	$pdf->SetFont('Calibri-Bold','',7.5);
 	$pdf->SetLineWidth(0.1);
-	$pdf->Cell(53,9,utf8_decode('MAGUEY (NOMBRE COMÚN)'),1,0,'C',1);
-	$pdf->Cell(41,9,utf8_decode('AGAVE (NOMBRE CIENTÍFICO)'),1,0,'C',1);
-	$pdf->Cell(35,9,utf8_decode('SISTEMA DE PLANTACIÓN'),1,0,'C',1);
+	$pdf->Cell(53,9,compat_utf8_decode('MAGUEY (NOMBRE COMÚN)'),1,0,'C',1);
+	$pdf->Cell(41,9,compat_utf8_decode('AGAVE (NOMBRE CIENTÍFICO)'),1,0,'C',1);
+	$pdf->Cell(35,9,compat_utf8_decode('SISTEMA DE PLANTACIÓN'),1,0,'C',1);
 	if($tipo == "P") {
-		$pdf->Cell(23,9,utf8_decode('kg. DE MAGUEY'),1,0,'C',1);
-		$pdf->Cell(24,9,utf8_decode('% ART'),1,0,'C',1);
+		$pdf->Cell(23,9,compat_utf8_decode('kg. DE MAGUEY'),1,0,'C',1);
+		$pdf->Cell(24,9,compat_utf8_decode('% ART'),1,0,'C',1);
 	} else 
-		$pdf->Cell(40,9,utf8_decode('PLÁNTULAS'),1,0,'C',1);
+		$pdf->Cell(40,9,compat_utf8_decode('PLÁNTULAS'),1,0,'C',1);
 	
 
 
@@ -643,11 +688,11 @@ where p.id_paraje='$paraje'";
 
 				$pdf->SetLineWidth(0.1);
 				$pdf->SetFont('Calibri-Bold','',7.5);
-				$pdf->Cell(53,5,utf8_decode($resultado['nombre']),1,0,'C');
+				$pdf->Cell(53,5,compat_utf8_decode($resultado['nombre']),1,0,'C');
 				 $pdf->SetFont('Calibri-BoldItalic','',8);
-				$pdf->Cell(41,5,utf8_decode(ucfirst(strtolower($resultado['genespecie']))),1,0,'C');
+				$pdf->Cell(41,5,compat_utf8_decode(ucfirst(strtolower($resultado['genespecie']))),1,0,'C');
 				$pdf->SetFont('Calibri-Bold','',7.5);
-				 $pdf->Cell(35,5,utf8_decode(strtoupper($resultado['regmaguey'])),1,0,'C');
+				 $pdf->Cell(35,5,compat_utf8_decode(strtoupper($resultado['regmaguey'])),1,0,'C');
 				if($tipo == "P") {
 					$pdf->Cell(23,5,'',1,0,'C');
 					$pdf->Cell(24,5,'',1,0,'C');
@@ -667,16 +712,18 @@ where p.id_paraje='$paraje'";
 			 $pdf->SetTextColor(33,33,33);
 
 
-			$pdf->cell(88,5,utf8_decode('___________________________________'),0,0,'C');
-			$pdf->cell(88,5,utf8_decode('___________________________________'),0,0,'C');
+			$pdf->cell(88,5,compat_utf8_decode('___________________________________'),0,0,'C');
+			$pdf->cell(88,5,compat_utf8_decode('___________________________________'),0,0,'C');
 			$pdf->Ln(5);
 			$pdf->SetFont('Calibri-Bold','',10);
-			$pdf->cell(88,5,utf8_decode('FIRMA DEL VENDEDOR'),0,0,'C');
-			$pdf->cell(88,5,utf8_decode('FIRMA DEL COMPRADOR'),0,0,'C');
+			$pdf->cell(88,5,compat_utf8_decode('FIRMA DEL VENDEDOR'),0,0,'C');
+			$pdf->cell(88,5,compat_utf8_decode('FIRMA DEL COMPRADOR'),0,0,'C');
 
 
 			}
-   ob_end_clean();
+   if (ob_get_level() > 0) {
+		ob_end_clean();
+	}
    //$pdf->Output("Extraccion".$paraje.".pdf",'D');
 
    $conexion->close();

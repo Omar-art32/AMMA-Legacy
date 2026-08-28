@@ -1,6 +1,5 @@
 FROM php:8.3-apache
 
-COPY php.ini /usr/local/etc/php/php.ini
 
 # Actualizar paquetes e instalar extensiones de PHP
 RUN apt-get update && apt-get install -y \

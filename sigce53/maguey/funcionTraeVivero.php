@@ -1,86 +1,66 @@
 <?php
-	/*include ("common/conexion.php");
-	include('php/registro/conexion_remota.php');*/
-	include("../common/conexion.php");
-	$conexion->set_charset("utf8");
-	
-	$idus = (isset($_POST['idus']))?$_POST['idus']:0;
-    // ---------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------
-    $sql_conflicto = "";
-    if($idus > 0 ){
-        $usuario_solicita = $_POST['idus'];
+/**
+ * funcionTraeVivero.php — PHP 8.3
+ * Lista de viveros con constancias. JSON {data: [...]}.
+ *
+ * Cambios vs 5.6: N+1 eliminada, JSON con json_encode, conflicto validado.
+ */
+declare(strict_types=1);
 
-        $conflicto_intereses = $conexion->prepare("SELECT getConflictoIntereses(?)");
-        if (!$conflicto_intereses) 
-            throw new Exception("ERROR AL CONSULTAR CONFLICTO (ERR:001)");
-        $conflicto_intereses->bind_param("i", $usuario_solicita);
-        if (!$conflicto_intereses->execute()) 
-            throw new Exception("ERROR AL CONSULTAR CONFLICTO (ERR:002)");
-        $conflicto_intereses->store_result();
-        $conflicto_intereses->bind_result($clientes_conflicto);
-        $conflicto_intereses->fetch();
-        $conflicto_intereses->close();
+require_once __DIR__ . '/../common/conexion.php';
 
-        /**MODIFICAR CONSULTA DEACUERDO A LAS NECECIDADES 
-         * LA VARIABLE $clientes_conflicto TRAE LOS CLIENTES EN EL SIGUIENTE FORMATO 'C9999','C9998'
-        */
-        /*if($usuario_solicita == 1)
-            $clientes_conflicto = "'C9999','C0285','C0001','C0003','C0249'"; */
+header('Content-Type: application/json; charset=utf-8');
+ini_set('display_errors', '0');
 
-        $sql_conflicto = ($clientes_conflicto != "") ? " AND (paraje_vivero.id_cliente NOT IN ({$clientes_conflicto}) ) " : "";
+$idus = (int)($_POST['idus'] ?? 0);
+
+try {
+    $sql_conflicto = '';
+    if ($idus > 0) {
+        $stmt = $conexion->prepare('SELECT getConflictoIntereses(?)');
+        $stmt->bind_param('i', $idus);
+        $stmt->execute();
+        $stmt->bind_result($clientes_conflicto);
+        $stmt->fetch();
+        $stmt->close();
+        if ($clientes_conflicto !== null && $clientes_conflicto !== ''
+            && preg_match("/^'[A-Za-z0-9]+'(,'[A-Za-z0-9]+')*$/", $clientes_conflicto)) {
+            $sql_conflicto = " AND pv.id_cliente NOT IN ({$clientes_conflicto}) ";
+        }
     }
-    // ---------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------
 
-	$consulta = "SELECT paraje_vivero.id_paraje,paraje_vivero.id_cliente,paraje_vivero.constancia_vivero 
-	FROM  paraje_vivero INNER JOIN constancias_vivero ON paraje_vivero.id_paraje = constancias_vivero.id_paraje 
-	WHERE paraje_vivero.tipo=2 $sql_conflicto
-	group by paraje_vivero.id_paraje";
+    $consulta = "SELECT pv.id_paraje, pv.id_cliente, pv.constancia_vivero,
+                        c.no_cliente, c.nombre AS nombreCliente
+                 FROM paraje_vivero pv
+                 INNER JOIN constancias_vivero cv ON pv.id_paraje = cv.id_paraje
+                 LEFT JOIN clientes c ON c.no_cliente = pv.id_cliente
+                 WHERE pv.tipo = 2 {$sql_conflicto}
+                 GROUP BY pv.id_paraje";
+    $result = $conexion->query($consulta);
 
+    $data = [];
+    while ($row = $result->fetch_assoc()) {
+        $idp = htmlspecialchars($row['id_paraje'] ?? '', ENT_QUOTES);
 
+        $constancias = '';
+        if (($row['constancia_vivero'] ?? '') !== '') {
+            $archivo = htmlspecialchars($row['constancia_vivero'], ENT_QUOTES);
+            $constancias = '<div class="col-md-4"><a href="constancia/pdfConstanciaVivero/' . $archivo . '" target="_blank"><img width="35px" src="images/pdf.svg"></a></div>';
+        }
+        $constancias .= '<div id="items_en_uso_vivero" class="col-md-4"><a href="#" id="vivero_' . $idp . '"><img width="35px" src="images/exchange.svg"></a></div>';
 
-	$registro=$conexion->query($consulta);
-	$tabla = "";
-	foreach ($registro as $row){
+        $data[] = [
+            'paraje'      => $row['id_paraje'],
+            'cliente'     => $row['no_cliente'] ?? '',
+            'nombre'      => $row['nombreCliente'] ?? '',
+            'constancias' => $constancias,
+        ];
+    }
 
-
-
-		$no_cliente="";
-		$nombreCliente="";
-
-
-		if($row['id_cliente']!=""){
-
-		$cliente=$row['id_cliente'];
-	    $strCliente = "SELECT clientes.no_cliente,clientes.nombre
-					   from clientes 
-					   where clientes.no_cliente='$cliente' ";
-
-
-
-				   
-	   $clientes= $conexion->query($strCliente);
-	   $filaClientes = mysqli_fetch_array($clientes);
-
-	   $no_cliente=$filaClientes['no_cliente'];
-	   $nombreCliente=$filaClientes['nombre'];
-
-	   } 
-
-
-		$constancias = ($row["constancia_vivero"]!="")?'<div class=\"col-md-4\"> <a href=\"constancia/pdfConstanciaVivero/'.$row["constancia_vivero"].'\" target=\"_blank\" ><img width=\"35px\" src=\"images/pdf.svg\"></a></div>':'';
-		$constancias .= '<div id=\"items_en_uso_vivero\" class=\"col-md-4\"><a href=\"#\" id=\"vivero_'.$row["id_paraje"].'\"><img width=\"35px\" src=\"images/exchange.svg\"></a></div>';
-		$tabla.='{
-			"paraje":"'.$row['id_paraje'].'",
-			"cliente":"'.$no_cliente.'",
-			"nombre":"'.$nombreCliente.'",
-			"constancias":"'.$constancias.'"
-		},';
-	}
-	//eliminamos la coma que sobra
-	$tabla = substr($tabla,0, strlen($tabla) - 1);
-	$conexion->close();
-	//$conexion_remota->close();
-	echo '{"data":['.$tabla.']}';	
-?>
+    echo json_encode(['data' => $data]);
+} catch (mysqli_sql_exception $e) {
+    error_log('[funcionTraeVivero.php] ' . $e->getMessage());
+    echo json_encode(['data' => []]);
+} finally {
+    $conexion->close();
+}
