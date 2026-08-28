@@ -1,7 +1,7 @@
 <?php
 
 
-include("../../../common/conexion.php");
+include(__DIR__ . "/../../../common/conexion.php");
 //include('../../../common/ExceptionCRM.php');
 $conexion->set_charset("utf8");
 
@@ -10,8 +10,8 @@ if(isset($_GET['search'])) {
     $limit= $_GET['limit'];
     $offset= $_GET['offset'];
 
-    $rows = array();
-    $regtot = array();
+    $rows = [];
+    $regtot = [];
     //$nivelUs = $_GET['nivelUs'];
     //$cargoUs = $_GET['cargoUs'];
 
@@ -32,7 +32,7 @@ if(isset($_GET['search'])) {
     $and = ""; $cadenaSql = "";
     $where = "";
     if($search != "") {
-      	$and = (($and == "")? " WHERE ": $and);
+      	$and = (($and === "")? " WHERE ": $and);
       	$where =
       	' WHERE (h_pedidos.no_cliente like "%'.$search.'%" or h_pedidos.edo like "%'.$search.'%" or s.solicitud like "%'.$search.'%"
       	marcas.marca like "%'.$search.'%" ) ' ;
@@ -49,7 +49,7 @@ if(isset($_GET['search'])) {
             $where = " WHERE DATE(h_pedidos.fecha) BETWEEN '$fechaini' AND '$fechafin' ";
 
         if($nocliente != "") {
-            $where .= ($where != "") ? " AND " : " WHERE ";
+            $where .= ($where !== "") ? " AND " : " WHERE ";
             $where .= " h_pedidos.no_cliente IN ('".$nocliente."') ";
         }
 
@@ -97,88 +97,89 @@ if(isset($_GET['search'])) {
             if (!$sqlCount->execute()) {
               $errorsql=$sqlCount->error; //guarda el mensaje de error en errorsql
               throw new CrmSqlException("Error al ejecutar la consulta para conteo",$errorsql,'');
-            } else {
-    	      	$sqlCount->store_result();
-    	        $totalRes = $sqlCount->num_rows; // cuenta el total de registros devueltos
-    	        /*Termina conteo sin limite*/
-                //echo $cadenaSql." ORDER BY hs.id_recibo desc LIMIT $limit OFFSET $offset ";
-                $sql = $conexion->prepare($cadenaSql." ORDER BY h_pedidos.id_sh_d desc LIMIT $limit OFFSET $offset ");
-                //echo $cadenaSql." ORDER BY hp.id_sh_d desc LIMIT $limit OFFSET $offset ";
-                if ($sql) { /*si la conexion esta preparada*/
-                    if (!$sql->execute()) {
-                        $errorsql=$sql->error; //guarda el mensaje de error en errorsql
-                        throw new CrmSqlException("Error al ejecutar la consulta para resultados",$errorsql,'');
+            }
+            $sqlCount->store_result();
+            $totalRes = $sqlCount->num_rows;
+            // cuenta el total de registros devueltos
+            /*Termina conteo sin limite*/
+            //echo $cadenaSql." ORDER BY hs.id_recibo desc LIMIT $limit OFFSET $offset ";
+            $sql = $conexion->prepare($cadenaSql." ORDER BY h_pedidos.id_sh_d desc LIMIT $limit OFFSET $offset ");
+            //echo $cadenaSql." ORDER BY hp.id_sh_d desc LIMIT $limit OFFSET $offset ";
+            if ($sql) { /*si la conexion esta preparada*/
+                if (!$sql->execute()) {
+                    $errorsql=$sql->error; //guarda el mensaje de error en errorsql
+                    throw new CrmSqlException("Error al ejecutar la consulta para resultados",$errorsql,'');
 
-                    } else {
-                        $sql->execute();
-                        //grab a result set
-                        $resultSet = $sql->get_result();
-                        //pull all results as an associative array
-                        $result = $resultSet->fetch_all(MYSQLI_ASSOC);
-                        foreach($result as $row) {
-                            $row_array['id_row'] = $row['id_row'];
-                            $row_array['no_pedido'] = $row['no_pedido'];
-                            $row_array['fecha'] = $row['fecha'];
-                            $row_array['no_cliente'] = $row['no_cliente'];
-                            $row_array['marca'] = $row['marca'];
-                            $row_array['cve_marca'] = $row['cve'];
-                            $row_array['estado'] = $row['edo'];
+                }
+                $sql->execute();
+                //grab a result set
+                $resultSet = $sql->get_result();
+                //pull all results as an associative array
+                $result = $resultSet->fetch_all(MYSQLI_ASSOC);
+                foreach($result as $row) {
+                    $row_array['id_row'] = $row['id_row'];
+                    $row_array['no_pedido'] = $row['no_pedido'];
+                    $row_array['fecha'] = $row['fecha'];
+                    $row_array['no_cliente'] = $row['no_cliente'];
+                    $row_array['marca'] = $row['marca'];
+                    $row_array['cve_marca'] = $row['cve'];
+                    $row_array['estado'] = $row['edo'];
 
-                            $row_array['folio'] = $row['folio'];
-                            $folioi = $row['no_cliente'].$row['cve'].str_pad($row['fi'], 7, "0", STR_PAD_LEFT).$row['serie'];
-                            $foliof = $row['no_cliente'].$row['cve'].str_pad($row['ff'], 7, "0", STR_PAD_LEFT).$row['serie'];
+                    $row_array['folio'] = $row['folio'];
+                    $folioi = $row['no_cliente'].$row['cve'].str_pad($row['fi'], 7, "0", STR_PAD_LEFT).$row['serie'];
+                    $foliof = $row['no_cliente'].$row['cve'].str_pad($row['ff'], 7, "0", STR_PAD_LEFT).$row['serie'];
 
-                            $row_array['folioi'] = $folioi;
-                            $row_array['foliof'] = $foliof;
-                            $row_array['cantidad'] = $row['cantidad'];
+                    $row_array['folioi'] = $folioi;
+                    $row_array['foliof'] = $foliof;
+                    $row_array['cantidad'] = $row['cantidad'];
 
-                            $tipo = "";
-                            if($row['tipo'] == 1)
-                              $tipo = "MEZCAL";
-                            if($row['tipo'] == 2)
-                              $tipo = "MEZCAL ARTESANAL";
-                            if($row['tipo'] == 3)
-                              $tipo = "MEZCAL ANCESTRAL";
-                            $row_array['categoria'] = $tipo;
+                    $tipo = "";
+                    if($row['tipo'] == 1)
+                      $tipo = "MEZCAL";
+                    if($row['tipo'] == 2)
+                      $tipo = "MEZCAL ARTESANAL";
+                    if($row['tipo'] == 3)
+                      $tipo = "MEZCAL ANCESTRAL";
+                    $row_array['categoria'] = $tipo;
 
-                            $row_array['holograma'] = ($row['holograma']=='1'?'NUEVOS':'GENÉRICOS');
-                            $row_array['tipo_pago'] = $row['tipo_pago'];
-                            $row_array['urgente'] = ($row['urgente'] == '1'? 'URGENTE': 'NORMAL');
-                            $status = "";
-                            if($row['status'] == 0)
-                                $status="SIN SOLICITAR";
-                            elseif($row['status'] == 1)
-                                $status="SOLICITADO";
-                            elseif($row['status'] == 2)
-                                $status="RECIBIDO";
-                            elseif($row['status'] == 3)
-                                $status="PROCESANDO";
-                            elseif($row['status'] == 4)
-                                $status="IMPRESO";
-                            elseif($row['status'] == 5)
-                                $status="ENTREGADO";
-                            elseif($row['status'] == 6)
-                                $status="EN INVENTARIO";
-                            $row_array['estatus'] = $status;
-                            //$row_array['firma'] = $row['firma'];
-                            /*$resp = crearCarpeta($row['no_cliente']);
-                            $row_array['carpetaUnica'] = $resp["CU"];*/
-                            //$row_array['txte'] = $row['estatus'] . " -- " .(($row['estatus'] == 1)?"FINALIZADO":($row['estatus'] == 2)?"CANCELADO":"INICIAL");
-                            $rows[]=$row_array;
-                        } //*/
-
-                        $sql->close();/* cerrar query */
-                        $json["total"]=$totalRes;
-                        $json["rows"]=$rows;
-                        $json["sql"] = $cadenaSql;
-                        $json["totalH"] = number_format($totalH, 0);
-                        //$json["otraCadena"] = $otraCadena;
-                        print_r(json_encode($json));
-                    } //end else sql execute
-                } else
-                    $errorsql=$conexion->error;
-                    //throw new CrmSqlException("Error al preparar la query de consulta de informes",$errorsql,'');
-            } //end else if sqlcount
+                    $row_array['holograma'] = ($row['holograma']=='1'?'NUEVOS':'GENÉRICOS');
+                    $row_array['tipo_pago'] = $row['tipo_pago'];
+                    $row_array['urgente'] = ($row['urgente'] == '1'? 'URGENTE': 'NORMAL');
+                    $status = "";
+                    if($row['status'] == 0)
+                        $status="SIN SOLICITAR";
+                    elseif($row['status'] == 1)
+                        $status="SOLICITADO";
+                    elseif($row['status'] == 2)
+                        $status="RECIBIDO";
+                    elseif($row['status'] == 3)
+                        $status="PROCESANDO";
+                    elseif($row['status'] == 4)
+                        $status="IMPRESO";
+                    elseif($row['status'] == 5)
+                        $status="ENTREGADO";
+                    elseif($row['status'] == 6)
+                        $status="EN INVENTARIO";
+                    $row_array['estatus'] = $status;
+                    //$row_array['firma'] = $row['firma'];
+                    /*$resp = crearCarpeta($row['no_cliente']);
+                    $row_array['carpetaUnica'] = $resp["CU"];*/
+                    //$row_array['txte'] = $row['estatus'] . " -- " .(($row['estatus'] == 1)?"FINALIZADO":($row['estatus'] == 2)?"CANCELADO":"INICIAL");
+                    $rows[]=$row_array;
+                }
+                //*/
+                $sql->close();
+                /* cerrar query */
+                $json["total"]=$totalRes;
+                $json["rows"]=$rows;
+                $json["sql"] = $cadenaSql;
+                $json["totalH"] = number_format($totalH, 0);
+                //$json["otraCadena"] = $otraCadena;
+                print_r(json_encode($json)); //end else sql execute
+            } else
+                $errorsql=$conexion->error;
+            //throw new CrmSqlException("Error al preparar la query de consulta de informes",$errorsql,'');
+             //end else if sqlcount
 
         } else { // al preparar la consulta
             $errorsql=$conexion->error;

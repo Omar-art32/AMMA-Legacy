@@ -1,16 +1,16 @@
 <?php
 //require('../../fpdf/fpdf.php');
-require('mc_table.php');
-require_once('../../../common/cfg_server.php');
-include ("../../../common/conexion.php");
+require(__DIR__ . '/mc_table.php');
+require_once(__DIR__ . '/../../../common/cfg_server.php');
+include (__DIR__ . "/../../../common/conexion.php");
 $fecha = date("Y-m-d" );
 $msj1="";
 $file_name="";
 $periodo="";
 $msj_per="";
 $operador="";
-$arr_sum=array();
-$array_resumen=array();
+$arr_sum=[];
+$array_resumen=[];
 $consulta="select h_salidas.id_salidas, h_salidas.id_recibo, h_salidas.anio_rcbo, h_salidas.no_cliente, if(h_salidas.marca='0','',h_salidas.marca) cve, if(marcas.marca is null,'',marcas.marca) marca, h_salidas.serie, h_salidas.edo, h_salidas.tipo, if(h_salidas.solicitud='','S/N',h_salidas.solicitud) solicitud, h_salidas.fecha_entr, h_salidas.destino, h_salidas.fi1, h_salidas.ff1, h_salidas.se1 from h_salidas left join marcas on marcas.no_cliente=h_salidas.no_cliente and marcas.cve_marca=h_salidas.marca";
 $sql_sum="SELECT h_salidas.no_cliente, if(h_salidas.marca='','GEN',h_salidas.marca) cve, if(marcas.marca is null,'GEN',marcas.marca) marca, if(h_salidas.serie='','GEN',h_salidas.serie) serie, sum(h_salidas.se1) suma FROM h_salidas LEFT JOIN marcas on marcas.no_cliente=h_salidas.no_cliente and marcas.cve_marca=h_salidas.marca ";
 if(isset($_POST['tipo_con']))
@@ -22,45 +22,39 @@ if(isset($_POST['tipo_con']))
 				switch($tipo)
 				{
 					case 'T':
-					{
-						$he1="Concentrado de Hologramas entregados";
-						$msj1="";
-						$file_name='gral_concentrado.pdf';
-						$operador=" where ";
-						break;
-					}
+                        $he1="Concentrado de Hologramas entregados";
+                        $msj1="";
+                        $file_name='gral_concentrado.pdf';
+                        $operador=" where ";
+                        break;
 					case 'G':
-					{
-						$consulta .= " where h_salidas.serie=''";
-			            $sql_sum.="  where h_salidas.serie=''";
-						$he1="Concentrado de Hologramas Genéricos entregados";
-						$msj1="";
-						$file_name='gen_concentrado.pdf';
-						$operador=" and ";
-						break;
-					}
+                        $consulta .= " where h_salidas.serie=''";
+                        $sql_sum.="  where h_salidas.serie=''";
+                        $he1="Concentrado de Hologramas Genéricos entregados";
+                        $msj1="";
+                        $file_name='gen_concentrado.pdf';
+                        $operador=" and ";
+                        break;
 					case 'P':
-					{
-						$consulta .= " where h_salidas.serie!=''";
-			            $sql_sum.="  where h_salidas.serie!=''";
-						$he1="Concentrado de Hologramas Personalizados entregados";
-						$msj1="";
-						$file_name='pers_concentrado.pdf';
-						$operador=" and ";
-						break;
-					}
+                        $consulta .= " where h_salidas.serie!=''";
+                        $sql_sum.="  where h_salidas.serie!=''";
+                        $he1="Concentrado de Hologramas Personalizados entregados";
+                        $msj1="";
+                        $file_name='pers_concentrado.pdf';
+                        $operador=" and ";
+                        break;
 				}
 
 
 
-		if(trim($fecha1)!=''&&trim($fecha2)!='')
+		if(trim($fecha1) !== ''&&trim($fecha2) !== '')
 		{
 			$consulta.=$operador."h_salidas.fecha_entr between '$fecha1' and '$fecha2' ORDER BY h_salidas.no_cliente,h_salidas.marca,h_salidas.fi1 asc";
 			$sql_sum.=$operador."h_salidas.fecha_entr between '$fecha1' and '$fecha2' GROUP BY concat(h_salidas.no_cliente,h_salidas.marca), h_salidas.serie ORDER BY h_salidas.no_cliente, h_salidas.marca,   h_salidas.fi1 asc ";
 			$periodo=fecha($fecha1).'  a  '.fecha($fecha2);
 			$msj_per="Periodo:";
 		}
-		else if(trim($fecha1)!='')
+		else if(trim($fecha1) !== '')
 		{
 			$consulta.=$operador."fecha_entr='$fecha1' ORDER BY h_salidas.marca,h_salidas.fi1 asc";
 			$sql_sum.=$operador."fecha_entr='$fecha1' GROUP BY concat(h_salidas.no_cliente,h_salidas.marca), h_salidas.serie ORDER BY h_salidas.no_cliente, h_salidas.marca,h_salidas.fi1 asc";
@@ -100,7 +94,7 @@ if($res_sum->num_rows>0)
 		{
 			$tipo_hol='PERSONALIZADOS';
 		}
-		$array_resumen[$ind_r]=array($cliente,$marca_hol,$tipo_hol,$row_sum['suma']);
+		$array_resumen[$ind_r]=[$cliente,$marca_hol,$tipo_hol,$row_sum['suma']];
 		$ind_r++;
 	}
 }//FIN OBTENER TOTALES
@@ -137,10 +131,10 @@ $y=42;
 	  while($fila = $result->fetch_assoc())
 	  {
 	  //---------------INICIO DE VARIABLES-----------
-	  $no_cliente=utf8_encode($fila["no_cliente"]);
+	  $no_cliente=mb_convert_encoding($fila["no_cliente"], 'UTF-8', 'ISO-8859-1');
 	  //MARCA
-	  $marca=utf8_encode($fila["marca"]);
-	  if($marca=="")
+	  $marca=mb_convert_encoding($fila["marca"], 'UTF-8', 'ISO-8859-1');
+	  if($marca === "")
 	  {
 		  $marca="N/A";
 	  }
@@ -186,25 +180,17 @@ $y=42;
 
 	  {
 						case 0:
-						{
-							$categoria="N/A";
-							break;
-						}
+                            $categoria="N/A";
+                            break;
 						case 1:
-						{
-							$categoria="MEZCAL";
-							break;
-						}
+                            $categoria="MEZCAL";
+                            break;
 						case 2:
-						{
-							$categoria="ARTESANAL";
-							break;
-						}
+                            $categoria="ARTESANAL";
+                            break;
 						case 3:
-						{
-							$categoria="ANCESTRAL";
-							break;
-						}
+                            $categoria="ANCESTRAL";
+                            break;
 
 	}
 
@@ -243,16 +229,16 @@ $y=42;
 		 $next_y=7;
 	 }
 	  //agregar el indice inicial
-	    if($fist_row!=1)
+	    if($fist_row !== 1)
 		{
-			if($new_index!=$last_index)
+			if($new_index !== $last_index)
 			{
 			$pdf->SetFillColor(91,91,91);
 	        $pdf->SetTextColor(255,255,255);
 			$pdf->SetFont('Arial','B',10);
 			$pdf->SetXY(230,$y);
 			$pdf->Cell(25,7,number_format($arr_sum[$last_index]),1,0,'C',1);
-			$y=$y+12;
+			$y += 12;
 			  if($y+7>170)
 			  {
 				$y=171;
@@ -274,23 +260,23 @@ $y=42;
 		}
 		//AGREGA LOS ENCABEZADOS
 		$pdf->SetTextColor(0,0,0);
-		if($new_pag==0)
+		if($new_pag === 0)
 		{
 			//mensajes del encabezado
 			$pdf->SetFont('Arial','B',12);
 			$pdf->SetXY(65,20);
-			$pdf->Cell(150,7,utf8_decode($he1),0,0,'C');
+			$pdf->Cell(150,7,mb_convert_encoding($he1, 'ISO-8859-1'),0,0,'C');
 
 
 			$pdf->SetXY(53,27);
 			$pdf->SetFont('Arial','B',11);
-			$pdf->Cell(150,7,utf8_decode($msj1),0,0,'C');
+			$pdf->Cell(150,7,mb_convert_encoding($msj1, 'ISO-8859-1'),0,0,'C');
 
-			if($msj1!='')//MSJ PARA MARCA
+			if($msj1 !== '')//MSJ PARA MARCA
 			{
 			  $pdf->SetXY(53,32);
 			  $pdf->SetFont('Arial','',9);
-			  $pdf->Cell(150,7,utf8_decode($marca),0,0,'C');
+			  $pdf->Cell(150,7,mb_convert_encoding($marca, 'ISO-8859-1'),0,0,'C');
 			  //MSJ SI EXISTE FECHA O PERIODO
 			  if($periodo!="")
 			  {
@@ -346,10 +332,10 @@ $y=42;
 			//Cantidad
 			$pdf->SetXY(230,$y);
 			$pdf->Cell(25,7,'Cantidad',1,0,'C',1);
-			$y=$y+7;
+			$y += 7;
 			$new_pag=1;
 		}
-		  if($bandera==1)
+		  if($bandera === 1)
 		  {
 			  $pdf->SetFillColor(242,242,242);
 			  $bandera=0;
@@ -373,29 +359,29 @@ $y=42;
 			$marca.='';
 			$pdf->SetFont('Arial','',8);
 			$pdf->Rect(45,$y,50,$alto_fila,'DF');
-			$pdf->MultiCell(40,5,utf8_decode($marca),0,'L',1);
+			$pdf->MultiCell(40,5,mb_convert_encoding($marca, 'ISO-8859-1'),0,'L',1);
 		   }
 		   else
 		   {
 			 $pdf->SetFont('Arial','',8);
-			 $pdf->Cell(40,$alto_fila,utf8_decode($marca),1,0,'L',1);
+			 $pdf->Cell(40,$alto_fila,mb_convert_encoding($marca, 'ISO-8859-1'),1,0,'L',1);
 		   }
 
 		  //serie
 		  $pdf->SetFont('Arial','',8);
 		  $pdf->SetXY(80,$y);
-		  $pdf->Cell(10,$alto_fila,utf8_decode($serie),1,0,'C',1);
+		  $pdf->Cell(10,$alto_fila,mb_convert_encoding($serie, 'ISO-8859-1'),1,0,'C',1);
 
 		  //estado
 		  $pdf->SetFont('Arial','',6);
 
 		  $pdf->SetXY(90,$y);
-		  $pdf->Cell(20,$alto_fila,utf8_decode($edo),1,0,'C',1);
+		  $pdf->Cell(20,$alto_fila,mb_convert_encoding($edo, 'ISO-8859-1'),1,0,'C',1);
 		  //categoria
 		  $pdf->SetFont('Arial','',6);
 
 		  $pdf->SetXY(110,$y);
-		  $pdf->Cell(15,$alto_fila,utf8_decode($categoria),1,0,'C',1);
+		  $pdf->Cell(15,$alto_fila,mb_convert_encoding($categoria, 'ISO-8859-1'),1,0,'C',1);
 		  //solicitud
 		  $pdf->SetFont('Arial','',7);
 		  $pdf->SetXY(125,$y);
@@ -404,22 +390,22 @@ $y=42;
 		   {
 
 			$pdf->SetFont('Arial','',7);
-			$pdf->MultiCell(15,5,utf8_decode($solicitud),1,'C',1);
+			$pdf->MultiCell(15,5,mb_convert_encoding($solicitud, 'ISO-8859-1'),1,'C',1);
 		   }
 		   else
 		   {
 			 $pdf->SetFont('Arial','',7);
-			 $pdf->Cell(15,$alto_fila,utf8_decode($solicitud),1,0,'C',1);
+			 $pdf->Cell(15,$alto_fila,mb_convert_encoding($solicitud, 'ISO-8859-1'),1,0,'C',1);
 		   }
 		  //f entrega
 		  $pdf->SetXY(140,$y);
 		  $pdf->Cell(20,$alto_fila,fecha($f_entrega),1,0,'C',1);
 		  //f inicial
 		  $pdf->SetXY(160,$y);
-		  $pdf->Cell(35,$alto_fila,utf8_decode($fol_ini),1,0,'C',1);
+		  $pdf->Cell(35,$alto_fila,mb_convert_encoding($fol_ini, 'ISO-8859-1'),1,0,'C',1);
 		  //f final
 		  $pdf->SetXY(195,$y);
-		  $pdf->Cell(35,$alto_fila,utf8_decode($fol_fin),1,0,'C',1);
+		  $pdf->Cell(35,$alto_fila,mb_convert_encoding($fol_fin, 'ISO-8859-1'),1,0,'C',1);
 			  //f final
 		  $pdf->SetXY(230,$y);
 		  $pdf->Cell(25,$alto_fila,number_format($cantidad),1,0,'C',1);
@@ -434,7 +420,7 @@ $y=42;
 			  }
 		   $last_index=$new_index;
 		   $new_index="";
-		   $y=$y+$next_y;
+		   $y += $next_y;
 		   $cont_rxp++;
 		   $cont_rows++;
 	  }
@@ -456,16 +442,16 @@ $y=42;
 
 	 $pdf->SetFont('Arial','B',12);
 			$pdf->SetXY(58,20);
-			$pdf->Cell(150,7,utf8_decode($he_RES),0,0,'C');
+			$pdf->Cell(150,7,mb_convert_encoding($he_RES, 'ISO-8859-1'),0,0,'C');
 			$pdf->SetXY(53,27);
 			$pdf->SetFont('Arial','B',11);
-			$pdf->Cell(150,7,utf8_decode($msj1),0,0,'C');
+			$pdf->Cell(150,7,mb_convert_encoding($msj1, 'ISO-8859-1'),0,0,'C');
 
-			if($msj1!='')//MSJ PARA MARCA
+			if($msj1 !== '')//MSJ PARA MARCA
 			{
 			  $pdf->SetXY(53,32);
 			  $pdf->SetFont('Arial','',9);
-			  $pdf->Cell(150,7,utf8_decode($marca),0,0,'C');
+			  $pdf->Cell(150,7,mb_convert_encoding($marca, 'ISO-8859-1'),0,0,'C');
 			  //MSJ SI EXISTE FECHA O PERIODO
 			  if($periodo!="")
 			  {
@@ -505,15 +491,15 @@ $y=42;
 			$pdf->SetXY(200,$y2);
 			$pdf->Cell(25,7,'Cantidad',1,0,'C',1);
 
-			$y2=$y2+7;
+			$y2 += 7;
 
 
 	 //$pdf->SetWidths(array(50,40,40));
 	 $gran_total=0;
 	 $alto_fila2=0;
-	 foreach ($array_resumen as $sumKey => $sumData)
+	 foreach ($array_resumen as $sumData)
 	 {
-	     if($fill_c==1)
+	     if($fill_c === 1)
 		  {
 			  $pdf->SetFillColor(242,242,242);
 			  $fill_c=0;
@@ -548,7 +534,7 @@ $y=42;
 		  }
 		  else
 		  {
-		   $y2=$y2+$alto_fila2;
+		   $y2 += $alto_fila2;
 		  }
 		 $gran_total+=$sumData[3];
 	  	 /*$num_line=$pdf->NbLines(30,$sumData[0]);
@@ -573,16 +559,15 @@ $y=42;
 //$file_name = 'rpt_pdf.pdf';
 $pdf->Output('../../tmp_pdf/'.$file_name, 'F');
 $dir_file="http://".$svr_dir."/hologramas/tmp_pdf/".$file_name;
-echo json_encode(array('status' => 'correcto','msj'=>$dir_file));
+echo json_encode(['status' => 'correcto','msj'=>$dir_file]);
 }//FIN ISSET CLIENTE
 else
 {
-	echo json_encode(array('status' => 'error','msj'=>'datos vacios'));
+	echo json_encode(['status' => 'error','msj'=>'datos vacios']);
 }
 
 function fecha($fech)
 {
-	$dat=array();
 	$dat=explode('-',$fech);
 	$m='';
 	if(count($dat)>1)
@@ -590,73 +575,47 @@ function fecha($fech)
 	  switch($dat[1])
 	  {
 		  case '01':
-		  {
-			  $m="Ene";
-			  break;
-		  }
+              $m="Ene";
+              break;
 		  case '02':
-		  {
-			  $m="Feb";
-			  break;
-		  }
+              $m="Feb";
+              break;
 		  case '03':
-		  {
-			  $m="Mar";
-			  break;
-		  }
+              $m="Mar";
+              break;
 		  case '04':
-		  {
-			  $m="Abr";
-			  break;
-		  }
+              $m="Abr";
+              break;
 		  case '05':
-		  {
-			  $m="May";
-			  break;
-		  }
+              $m="May";
+              break;
 		  case '06':
-		  {
-			  $m="Jun";
-			  break;
-		  }
+              $m="Jun";
+              break;
 
 		  case '07':
-		  {
-			  $m="Jul";
-			  break;
-		  }
+              $m="Jul";
+              break;
 		  case '08':
-		  {
-			  $m="Ago";
-			  break;
-		  }
+              $m="Ago";
+              break;
 		  case '9':
-		  {
-			  $m="Sep";
-			  break;
-		  }
+              $m="Sep";
+              break;
 		  case '10':
-		  {
-			  $m="Oct";
-			  break;
-		  }
+              $m="Oct";
+              break;
 		  case '11':
-		  {
-			  $m="Nov";
-			  break;
-		  }
+              $m="Nov";
+              break;
 		  case '12':
-		  {
-			  $m="Dic";
-			  break;
-		  }
+              $m="Dic";
+              break;
 
 	  }
-	  $nfech=$dat[2]."-".$m."-".$dat[0];
-		return $nfech;
-	}else{
-		return "";
+		return $dat[2]."-".$m."-".$dat[0];
 	}
+    return "";
 
 }
 

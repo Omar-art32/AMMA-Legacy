@@ -1,5 +1,5 @@
 <?php
-      include("../../../common/conexion.php");
+      include(__DIR__ . "/../../../common/conexion.php");
 
 
 	  $msj="";
@@ -28,7 +28,7 @@
 				
 
 				$msj.='<p><b> <span class="glyphicon glyphicon-asterisk"> </span> Observaciones  </b><p>';
-				$msj.='<p><b>'.utf8_encode($observaciones).'</b><p>';
+				$msj.='<p><b>'.mb_convert_encoding($observaciones, 'UTF-8', 'ISO-8859-1').'</b><p>';
 				
 
 			  
@@ -39,10 +39,10 @@
 
 
 		  $conexion->close();
-		  echo json_encode(array("status" =>"OK", "msj"=>$msj));
+		  echo json_encode(["status" =>"OK", "msj"=>$msj]);
 	  }
 	  catch (Exception $e) {
-		  echo json_encode(array("status" => "error", "msj" => "Error en la base de datos: " . $e->getMessage()));
+		  echo json_encode(["status" => "error", "msj" => "Error en la base de datos: " . $e->getMessage()]);
 		  $conexion->close();
 	  }
 ?>

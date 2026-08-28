@@ -1,6 +1,6 @@
 <?php
-include("../../../common/conexion.php");
-include('../../../common/ExceptionCRM.php');
+include(__DIR__ . "/../../../common/conexion.php");
+include(__DIR__ . '/../../../common/ExceptionCRM.php');
 mysqli_set_charset($conexion,"utf8");
 // upload.php
 // 'images' refers to your file input name attribute
@@ -29,7 +29,7 @@ if($existe == '1') {
             $success = false;
     } else
         $success = false;
-    if ($success === true) 
+    if ($success) 
         $output = ['msj'=> "Archivo Eliminado."];
     else
         $output = ['error'=> "No fue posible actualizar el registro en la Base de Datos. Contacte a su Administrador"];

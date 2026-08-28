@@ -5,7 +5,7 @@ set_time_limit(300);
 session_start();
 session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
 $mod=1;
-require_once("../../../common/cfg_server.php");
+require_once(__DIR__ . "/../../../common/cfg_server.php");
 $d_s=$_POST["id_s"];
 if(isset($_SESSION[$d_s]))
 {
@@ -19,15 +19,15 @@ if(isset($_SESSION[$d_s]))
 		ini_set('display_errors', TRUE);
 		ini_set('display_startup_errors', TRUE);
 		date_default_timezone_set('Mexico/General');
-		if (PHP_SAPI == 'cli')
+		if (PHP_SAPI === 'cli')
 		die('This example should only be run from a Web Browser');
 
 		/** Include PHPExcel */
-		require_once '../../../libs/phpExcel/PHPExcel.php';
+		require_once __DIR__ . '/../../../libs/phpExcel/PHPExcel.php';
 		$cacheMethod = PHPExcel_CachedObjectStorageFactory::cache_to_phpTemp;
-		$cacheSettings = array('memoryCacheSize' => '64MB');
+		$cacheSettings = ['memoryCacheSize' => '64MB'];
 		PHPExcel_Settings::setCacheStorageMethod($cacheMethod, $cacheSettings);
-		include('../../../common/conexion.php');
+		include(__DIR__ . '/../../../common/conexion.php');
 		/** DECLARACION DE VARIABLES */
 		$fecha = date("Y-m-d" );
 		$msj1="";
@@ -76,41 +76,35 @@ if(isset($_SESSION[$d_s]))
 			switch($tipo)
 			{
 				case 'T':
-				{
-					$he1="Mixto Concentrado";
-					$msj1="";
-					$operador=" where ";
-					$file_name='mixto_concentrado.xlsx';
-					break;
-				}
+                    $he1="Mixto Concentrado";
+                    $msj1="";
+                    $operador=" where ";
+                    $file_name='mixto_concentrado.xlsx';
+                    break;
 				case 'G':
-				{
-					$consulta .= " where hs.serie=''";
-					$sql_sum.="  where hs.serie=''";
-					$he1="Genéricos";
-					$msj1="";
-					$operador=" and ";
-					$file_name='genericos_concentrado.xlsx';
-					break;
-				}
+                    $consulta .= " where hs.serie=''";
+                    $sql_sum.="  where hs.serie=''";
+                    $he1="Genéricos";
+                    $msj1="";
+                    $operador=" and ";
+                    $file_name='genericos_concentrado.xlsx';
+                    break;
 				case 'P':
-				{
-					$consulta .= " where hs.serie!=''";
-					$sql_sum.="  where hs.serie!=''";
-					$he1="Personalizados";
-					$msj1="";
-					$operador=" and ";
-					$file_name='personalizado_concentrado.xlsx';
-					break;
-				}
+                    $consulta .= " where hs.serie!=''";
+                    $sql_sum.="  where hs.serie!=''";
+                    $he1="Personalizados";
+                    $msj1="";
+                    $operador=" and ";
+                    $file_name='personalizado_concentrado.xlsx';
+                    break;
 			}
 
-			if(trim($fecha1)!=''&&trim($fecha2)!='') {
+			if(trim($fecha1) !== ''&&trim($fecha2) !== '') {
 				$consulta.=$operador."hs.fecha_entr between '$fecha1' and '$fecha2' ORDER BY hs.no_cliente,hs.marca,hs.fi1 asc";
 				$sql_sum.=$operador."hs.fecha_entr between '$fecha1' and '$fecha2' GROUP BY concat(hs.no_cliente,hs.marca), hs.serie ORDER BY hs.no_cliente, hs.marca,   hs.fi1 asc ";
 				$periodo=fecha($fecha1).'  a  '.fecha($fecha2);
 				$msj_per="Periodo:";
-			} else if(trim($fecha1)!='') {
+			} else if(trim($fecha1) !== '') {
 				$consulta.=$operador."fecha_entr='$fecha1' ORDER BY hs.marca,hs.fi1 asc";
 				$sql_sum.=$operador."fecha_entr='$fecha1' GROUP BY concat(hs.no_cliente,hs.marca), hs.serie ORDER BY hs.no_cliente, hs.marca,hs.fi1 asc";
 				$periodo=fecha($fecha1);
@@ -123,7 +117,7 @@ if(isset($_SESSION[$d_s]))
 			$res=$conexion->query($consulta);
 			$tot=$res->num_rows;
 			$t2=$res->field_count;
-			$letras=array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC');
+			$letras=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC'];
 			// Create new PHPExcel object
 			$objPHPExcel = new PHPExcel();
 			// Set document properties
@@ -134,68 +128,68 @@ if(isset($_SESSION[$d_s]))
 			->setDescription("REPORTE GENERAL")
 			->setKeywords("office 2007 openxml php")
 			->setCategory("REPORTE");
-			$styleArray = array(
-				'font' => array(
+			$styleArray = [
+				'font' => [
 					'bold' => true,
-					),
-				'alignment' => array(
+					],
+				'alignment' => [
 					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-					),
-				'borders' => array(
-					'allborders' => array(
+					],
+				'borders' => [
+					'allborders' => [
 						'style' => PHPExcel_Style_Border::BORDER_THIN,
-						),
-					),
-				'fill' => array(
+						],
+					],
+				'fill' => [
 					'type' => PHPExcel_Style_Fill::FILL_GRADIENT_LINEAR,'rotation' => 90,
-					'startcolor' => array(
+					'startcolor' => [
 						'argb' => 'FFA0A0A0',
-					),
-					'endcolor' => array(
+					],
+					'endcolor' => [
 						'argb' => 'FFFFFFFF',
-					),
-				),
-			);
-			$styleArray2 = array(
-				'font' => array(
+					],
+				],
+			];
+			$styleArray2 = [
+				'font' => [
 					'bold' => true,
-					'color'=>array('rgb'=>'ffffff'),
-				),
-				'borders' => array(
-					'allborders' => array(
+					'color'=>['rgb'=>'ffffff'],
+				],
+				'borders' => [
+					'allborders' => [
 						'style' => PHPExcel_Style_Border::BORDER_THIN,
-						'color' => array('rgb' => '9DB2B3'),
-						),
-					),
-				'alignment' => array(
+						'color' => ['rgb' => '9DB2B3'],
+						],
+					],
+				'alignment' => [
 					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
 					'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER,
-				),
-				'fill' => array(
+				],
+				'fill' => [
 					'type' => PHPExcel_Style_Fill::FILL_SOLID,
-					'color' => array('rgb'=>'23719E'),
-				),
-			);
-			$styleArray3 = array(
-				'font' => array(
+					'color' => ['rgb'=>'23719E'],
+				],
+			];
+			$styleArray3 = [
+				'font' => [
 					'bold' => true,
-					'color'=>array('rgb'=>'ffffff'),
-				),
-				'borders' => array(
-					'allborders' => array(
+					'color'=>['rgb'=>'ffffff'],
+				],
+				'borders' => [
+					'allborders' => [
 						'style' => PHPExcel_Style_Border::BORDER_THIN,
-						'color' => array('rgb' => '6A8696'),
-						),
-					),
-				'alignment' => array(
+						'color' => ['rgb' => '6A8696'],
+						],
+					],
+				'alignment' => [
 					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_RIGHT,
 					'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER,
-				),
-				'fill' => array(
+				],
+				'fill' => [
 					'type' => PHPExcel_Style_Fill::FILL_SOLID,
-					'color' => array('rgb'=>'2E966D'),
-				),
-			);
+					'color' => ['rgb'=>'2E966D'],
+				],
+			];
 				
 			//HEADER
 			$objPHPExcel->getActiveSheet()->mergeCells('D1:I1');
@@ -255,9 +249,9 @@ if(isset($_SESSION[$d_s]))
 			}
 
 			$x=$st_r;
-			$arrCampos = array("anio_rcbo", "no_cliente", "marca",	    "serie",      "edo",
+			$arrCampos = ["anio_rcbo", "no_cliente", "marca",	    "serie",      "edo",
 								"tipo",		"solicitud",  "destino",    "fecha_entr", "fi1", 		
-								"ff1",		"m1",		  "motivo",     "m2",		  "se1");
+								"ff1",		"m1",		  "motivo",     "m2",		  "se1"];
 			$batchSize = 500;
 			$batchData = [];
 			$x = $st_r;
@@ -287,7 +281,7 @@ if(isset($_SESSION[$d_s]))
 			//$objPHPExcel->setActiveSheetIndex(0)->setCellValue('A4', "holiiiis");
 			//echo $x; return;
 			// Procesar el último lote
-			if(!empty($batchData)) {
+			if($batchData !== []) {
 				$objPHPExcel->getActiveSheet()->fromArray($batchData, null, 'A'.$x);
 				$range = 'A'.$x.':O'.($x + count($batchData) - 1);
 				$objPHPExcel->getActiveSheet()->getStyle($range)->applyFromArray([
@@ -423,7 +417,7 @@ if(isset($_SESSION[$d_s]))
 					$x=7;
 					while($row_sum=$res_sum->fetch_array())
 					{
-						if($bandera_color==0){
+						if($bandera_color === 0){
 						$fill_color="DDEBF7";
 						$bandera_color=1;
 						} else {
@@ -432,10 +426,10 @@ if(isset($_SESSION[$d_s]))
 						}
 						for($i=2;$i<=5;$i++) {
 							$c=$letras[$i-1].$x;
-							$dato=utf8_encode($row_sum[$i-1]);
+							$dato=mb_convert_encoding($row_sum[$i-1], 'UTF-8', 'ISO-8859-1');
 							$objPHPExcel->setActiveSheetIndex(1)->setCellValue($c, $dato);
 							$objPHPExcel->getActiveSheet()->getColumnDimension($letras[$i-1])->setAutoSize(true);
-							if($i==5) {
+							if($i === 5) {
 								$objPHPExcel->getActiveSheet()->getStyle($c)->getNumberFormat()->setFormatCode("#,##0");
 							}
 						}
@@ -468,12 +462,12 @@ if(isset($_SESSION[$d_s]))
 			$file_name = 'reporte_' . date('Ymd_His') . '.xlsx';
 			$objWriter->save('../../tmp_excel/'.$file_name);
 			$dir_file="http://".$svr_dir."/hologramas/tmp_excel/".$file_name;
-			echo json_encode(array('status' => 'OK','msj'=>$dir_file));
+			echo json_encode(['status' => 'OK','msj'=>$dir_file]);
 			exit;
 			//FIN DEL SCRIPT PARA GENERAR EL ARCHIVO
 			
 		} else {
-			echo json_encode(array('status' => 'error','msj'=>'datos vacios'));
+			echo json_encode(['status' => 'error','msj'=>'datos vacios']);
 		}
 	} else {
 	  header("location: http://".$svr_dir."/acceso/login.php?mod=$mod");
@@ -484,75 +478,49 @@ if(isset($_SESSION[$d_s]))
 
 function fecha($fech)
 {
-	$dat=array();
 	$dat=explode('-',$fech);
 	$m='';
 	switch($dat[1])
 	{
 		case '01':
-		{
-			$m="Ene";
-			break;
-		}
+            $m="Ene";
+            break;
 		case '02':
-		{
-			$m="Feb";
-			break;
-		}
+            $m="Feb";
+            break;
 		case '03':
-		{
-			$m="Mar";
-			break;
-		}
+            $m="Mar";
+            break;
 		case '04':
-		{
-			$m="Abr";
-			break;
-		}
+            $m="Abr";
+            break;
 		case '05':
-		{
-			$m="May";
-			break;
-		}
+            $m="May";
+            break;
 		case '06':
-		{
-			$m="Jun";
-			break;
-		}
+            $m="Jun";
+            break;
 
 		case '07':
-		{
-			$m="Jul";
-			break;
-		}
+            $m="Jul";
+            break;
 		case '08':
-		{
-			$m="Ago";
-			break;
-		}
+            $m="Ago";
+            break;
 		case '9':
-		{
-			$m="Sep";
-			break;
-		}
+            $m="Sep";
+            break;
 		case '10':
-		{
-			$m="Oct";
-			break;
-		}
+            $m="Oct";
+            break;
 		case '11':
-		{
-			$m="Nov";
-			break;
-		}
+            $m="Nov";
+            break;
 		case '12':
-		{
-			$m="Dic";
-			break;
-		}
+            $m="Dic";
+            break;
 
 	}
-	$nfech=$dat[2]."-".$m."-".$dat[0];
-		return $nfech;
+		return $dat[2]."-".$m."-".$dat[0];
 }
 ?>

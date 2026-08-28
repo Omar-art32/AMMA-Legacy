@@ -1,6 +1,6 @@
 <?php
-include("../../../common/conexion.php");
-include('../../../common/ExceptionCRM.php');
+include(__DIR__ . "/../../../common/conexion.php");
+include(__DIR__ . '/../../../common/ExceptionCRM.php');
 mysqli_set_charset($conexion,"utf8");
 // upload.php
 
@@ -89,7 +89,7 @@ echo json_encode($output);
 
 
     function crearCarpeta($numCliente){
-        include('../../../common/conexion.php');
+        include(__DIR__ . '/../../../common/conexion.php');
         $sql = $conexion->prepare("SELECT no_cliente,carpetaUnica FROM clientes WHERE no_cliente="."'".$numCliente."' ");
         $carpetaUnicaO = ""; $noCliente = "";
         if ($sql) { /*si la conexion esta preparada*/
@@ -120,14 +120,14 @@ echo json_encode($output);
         } else
             $resp = '1a';
 
-        if($resp == "1a") {
+        if($resp === "1a") {
             if(chmod($dir, 0777))
                 $resp = '1b';
             else
                 $resp = '0b';
         }
         //
-        if($resp == "1b") {
+        if($resp === "1b") {
             if ($carpetaUnicaO == "" || $carpetaUnicaO == NULL) {
                 //Actualizar carpetaUnica en clientes
                 $sql="UPDATE clientes SET carpetaUnica=? WHERE no_cliente=?";
