@@ -218,11 +218,11 @@ $( document ).ready(function() {
                   url: "php/r_excel_predios.php",
                   contentType: "application/x-www-form-urlencoded;charset=UTF-8",
                   data: "cliente="+CLIENTESEL+"&fecha1="+$("#bFechaIni").val()+"&fecha2="+$("#bFechaFin").val()+"&id_s="+id_ses+"&busca="+BUSCA1,
-                  datatype: 'json',
+                  dataType: 'json',
                   success: function(response){
                       destroy_progress(1);
                       $('#divIcoRep1').html('<center><img src="../images/excell.png" onclick="rep_excel_predios()" alt="Generar Excel" style="cursor:pointer;" width="50px;"></center>');
-                      var j_res=JSON.parse(response);
+                      var j_res=response;
                       if(j_res.status==='OK')
                       {
                          var dir=j_res.msj;
@@ -257,11 +257,11 @@ $( document ).ready(function() {
                 url: "php/r_excel_plantas.php",
                 contentType: "application/x-www-form-urlencoded;charset=UTF-8",
                 data: "cliente="+CLIENTESEL2+"&fecha1="+$("#bFechaIni2").val()+"&fecha2="+$("#bFechaFin2").val()+"&id_s="+id_ses+"&busca="+BUSCA2,
-                datatype: 'json',
+                dataType: 'json',
                 success: function(response){
                     destroy_progress(2);
                     $('#divIcoRep2').html('<center><img src="../images/excell.png" onclick="rep_excel_plantas()" alt="Generar Excel" style="cursor:pointer;" width="50px;"></center>');
-                    var j_res=JSON.parse(response);
+                    var j_res=response;
                     if(j_res.status==='OK') {
                        var dir=j_res.msj;
                        window.open(dir, '_blank');
@@ -292,11 +292,11 @@ $( document ).ready(function() {
                 url: "php/r_excel_guias.php",
                 contentType: "application/x-www-form-urlencoded;charset=UTF-8",
                 data: "cliente="+CLIENTESEL3+"&fecha1="+$("#bFechaIni3").val()+"&fecha2="+$("#bFechaFin3").val()+"&id_s="+id_ses+"&busca="+BUSCA3,
-                datatype: 'json',
+                dataType: 'json',
                 success: function(response){
                     destroy_progress(3);
                     $('#divIcoRep3').html('<center><img src="../images/excell.png" onclick="rep_excel_guias()" alt="Generar Excel" style="cursor:pointer;" width="50px;"></center>');
-                    var j_res=JSON.parse(response);
+                    var j_res=response;
                     if(j_res.status==='OK') {
                     var dir=j_res.msj;
                     window.open(dir, '_blank');
