@@ -1,31 +1,63 @@
 <?php
-require('../../../libs/fpdf/fpdf.php');
+// Definir la ruta física de la carpeta 'font' de FPDF
+
+// 1. Definir la ruta exacta de la carpeta font
+define('FPDF_FONTPATH', $_SERVER['DOCUMENT_ROOT'] . '/sigce53/libs/fpdf/font/');
+
+// 2. Requerir el archivo fpdf.php usando ruta absoluta
+require_once($_SERVER['DOCUMENT_ROOT'] . '/sigce53/libs/fpdf/fpdf.php');
+
 class PDF_MC_Table extends FPDF
 {
-    function Header()
-	{
-		//Logo
-		$this->Image('../../../images/logo_amma.jpg',8,6,33);
-		//Arial bold 15
-		$this->SetTextColor(0,0,0);
-        $this->AddFont('RomanaBT-Bold','B','RomanaBT.php');
-		$this->SetFont('RomanaBT-Bold','B',18);
-		//Movernos a la derecha
-		$this->Cell(80);
-		//Título
-		$this->SetXY(90,10);
-		$this->Cell(101,10,utf8_decode('Asociación de Maguey y Mezcal Artesanal'),0,0,'C');
-		//Salto de línea
-		$this->Ln(20);
+	function __construct($orientation='P', $unit='mm', $size='A4')
+    {
+        // Compatibilidad de constructor para FPDF en PHP 8.3
+        if (method_exists('FPDF', '__construct')) {
+            parent::__construct($orientation, $unit, $size);
+        } else {
+            $this->FPDF($orientation, $unit, $size);
+        }
+    }
 
-	}
+	function Header()
+    {
+        // Asegurar la ruta de las fuentes para la tipografía original
+        if (!defined('FPDF_FONTPATH')) {
+            define('FPDF_FONTPATH', $_SERVER['DOCUMENT_ROOT'] . '/sigce53/libs/fpdf/font/');
+        }
+
+        // Cargar imagen con validación de existencia
+        $logoPath = $_SERVER['DOCUMENT_ROOT'] . '/sigce53/images/logo_amma.jpg';
+        if (file_exists($logoPath) && is_readable($logoPath)) {
+            $this->Image($logoPath, 8, 6, 33);
+        }
+
+        // fuente tipográfica original de la plantilla (RomanaBT-Bold)
+        $this->SetTextColor(0, 0, 0);
+        $this->AddFont('RomanaBT-Bold', 'B', 'RomanaBT.php');
+        $this->SetFont('RomanaBT-Bold', 'B', 18);
+        
+        $this->Cell(80);
+        
+        //  Codificación compatible con PHP 8.3 (remplaza utf8_decode)
+        $texto_titulo = mb_convert_encoding('Asociación de Maguey y Mezcal Artesanal', 'ISO-8859-1', 'UTF-8');
+        
+        $this->SetXY(90, 10);
+        $this->Cell(101, 10, $texto_titulo, 0, 0, 'C');
+        $this->Ln(20);
+    }
+
 	function Footer()
 	{
 		$this->SetTextColor(0,0,0);
 		global $fecha;
 		$this->SetXY(240,-15);
 		$this->SetFont('Arial','',8);
-		$this->Cell(0,10,utf8_decode('Página '.$this->PageNo().' de {nb}'),0,0,'C');
+		
+		// Reemplazo de utf8_decode por mb_convert_encoding
+		$texto_pagina = mb_convert_encoding('Página '.$this->PageNo().' de {nb}', 'ISO-8859-1', 'UTF-8');
+		
+		$this->Cell(0,10,$texto_pagina,0,0,'C');
 	}
 var $col=0;
 var $widths;
