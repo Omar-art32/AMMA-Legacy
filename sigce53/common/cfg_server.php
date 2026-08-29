@@ -20,3 +20,16 @@ require_once __DIR__ . '/config.php';
 // config.php ya deja definidas las variables que el código legado espera:
 //   $svr_dir          = HTTP_HOST . APP_BASE_PATH   (p.ej. "localhost/sigce53")
 //   $protocolo_actual = "http:" | "https:"
+
+
+/*
+ * Verificamos que config.php haya definido correctamente
+ * las variables que necesita el código legado.
+ */
+if (!isset($svr_dir) || trim($svr_dir) === '') {
+    $svr_dir = ($_SERVER['HTTP_HOST'] ?? 'localhost') . APP_BASE_PATH;
+}
+
+if (!isset($protocolo_actual) || trim($protocolo_actual) === '') {
+    $protocolo_actual = 'http:';
+}

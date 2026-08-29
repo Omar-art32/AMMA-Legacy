@@ -18,10 +18,22 @@ if (!defined('APP_BASE_PATH')) {
     define('APP_BASE_PATH', '/sigce53');
 }
 
-// Host del servidor tal como lo ve el navegador (dominio:puerto).
-$svr_dir = ($_SERVER['HTTP_HOST'] ?? 'localhost') . APP_BASE_PATH;
+/**
+ * Host del servidor tal como lo ve el navegador.
+ */
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
-// Protocolo actual (http/https) detectado de forma robusta.
+/**
+ * Dirección completa del servidor.
+ *
+ * Ejemplo:
+ * localhost/sigce53
+ */
+$svr_dir = $host . APP_BASE_PATH;
+
+/**
+ * Protocolo actual.
+ */
 $protocolo_actual = (
     (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || (($_SERVER['SERVER_PORT'] ?? '') == 443)
