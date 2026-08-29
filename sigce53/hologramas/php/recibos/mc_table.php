@@ -1,71 +1,55 @@
 <?php
-require('../../../libs/fpdf/fpdf.php');
+/**
+ * MIGRADO: FPDF clásico (libs/fpdf/fpdf.php) -> setasign/fpdf (^1.9) vía Composer.
+ *
+ * setasign/fpdf expone la misma clase global `FPDF` (sin namespace) con
+ * idéntica API, así que PDF_MC_Table no necesitó cambios en su lógica.
+ *
+ * Único detalle real: tu fuente personalizada 'RomanaBT-Bold' se carga desde
+ * un archivo de definición clásico (RomanaBT.php). setasign/fpdf TODAVÍA
+ * soporta ese formato (solo emite un aviso E_USER_DEPRECATED, no rompe nada).
+ *
+ * IMPORTANTE: NO se debe sobreescribir FPDF_FONTPATH globalmente, porque las
+ * fuentes "core" (Arial/Helvetica, Times, Courier...) que usa el resto de tus
+ * reportes (SetFont('Arial', ...)) ahora viven como .json dentro de
+ * vendor/setasign/fpdf/font/, y si rediriges el fontpath global se rompe su
+ * resolución (justo el error "Could not load font definition file:
+ * .../helveticab.json"). Por eso la ruta a la carpeta vieja se pasa SOLO en
+ * la llamada a AddFont() de RomanaBT-Bold, como 4º parámetro.
+ *
+ * AJUSTA la ruta de abajo si RomanaBT.php no está en libs/fpdf/font/.
+ */
+require_once __DIR__ . '/../../../vendor/autoload.php';
+
+define('AMMA_CUSTOM_FONT_DIR', __DIR__ . '/../../../libs/fpdf/font/');
+
 class PDF_MC_Table extends FPDF
 {
-
-	function __construct($orientation='P',$unit='mm',$format='A4') {                  
-		parent::FPDF($orientation,$unit,$format);
-
-		//Initialization
-		////////Protection part/////////////////////////////////////////////////////////////
-		$this->encrypted=false;
-		$this->last_rc4_key='';
-		$this->padding="\x28\xBF\x4E\x5E\x4E\x75\x8A\x41\x64\x00\x4E\x56\xFF\xFA\x01\x08".
-		"\x2E\x2E\x00\xB6\xD0\x68\x3E\x80\x2F\x0C\xA9\xFE\x64\x53\x69\x7A";
-		////////////////////////////////////////////////////////////////////////////////////
-		$this->B=0;
-		$this->I=0;
-		$this->U=0;
-		$this->HREF='';
-
-		$this->tableborder=0;
-		$this->tdbegin=false;
-		$this->tdwidth=0;
-		$this->tdheight=0;
-		$this->tdalign="L";
-		$this->tdbgcolor=false;
-
-		$this->oldx=0;
-		$this->oldy=0;
-		$this->AddFont('Calibri','','CalibriRegular.php');
-		$this->AddFont('Calibri-Bold','','CalibriBold.php');
-		$this->AddFont('Calibri-BoldItalic','','CalibriBoldItalic.php');
-		$this->AddFont('Calibri-Italic','','CalibriItalic.php');
-		$this->AddFont('Calibri-Light','','CalibriLight.php');
-		$this->AddFont('Calibri-LightItalic','','CalibriLightItalic.php');
-		$this->fontlist=array("Calibri","Times","times","courier","helvetica","symbol");
-		$this->issetfont=false;
-		$this->issetcolor=false;
-		$this->SetAutoPageBreak( 1 , 30);
-		$this->SetMargins(25,15,15);
-		$this->SetAutoPageBreak(false,40);
-	}
-	
-function Header()
+    function Header()
 	{
-		/*
-		 //Logo
-		$this->Image('../../images/logo.jpg',8,6,33);
+		//Logo
+		$this->Image('../../../images/logo_amma.jpg',8,6,33);
 		//Arial bold 15
-		
-        $this->AddFont('RomanaBT-Bold','B','RomanaBT.php');	
+		$this->SetTextColor(0,0,0);
+        $fontDir = __DIR__ . '/../../../librerias/fpdf/font/json/';
+                $this->AddFont('RomanaBT-Bold','B','RomanaBT-Bold.json',$fontDir);
 		$this->SetFont('RomanaBT-Bold','B',18);
 		//Movernos a la derecha
 		$this->Cell(80);
 		//Título
 		$this->SetXY(90,10);
-		$this->Cell(101,10,utf8_decode('Consejo Regulador del Mezcal'),0,0,'C');
+		$this->Cell(101,10,'Asociaci�n de Maguey y Mezcal Artesanal',0,0,'C');
 		//Salto de línea
-		$this->Ln(20);*/
+		$this->Ln(20);
 
-				
 	}
 	function Footer()
 	{
-		/*global $fecha;
-		$this->SetXY(160,-15);
-		$this->SetFont('Arial','',8);		
-		$this->Cell(0,10,utf8_decode('Página '.$this->PageNo().' de {nb}'),0,0,'C');*/
+		$this->SetTextColor(0,0,0);
+		global $fecha;
+		$this->SetXY(240,-15);
+		$this->SetFont('Arial','',8);
+                $this->Cell(0,10,'P�gina '.$this->PageNo().' de {nb}',0,0,'C');
 	}
 var $col=0;
 var $widths;
@@ -169,4 +153,5 @@ function NbLines($w,$txt)
 	return $nl;
 }
 }
-?>
+
+

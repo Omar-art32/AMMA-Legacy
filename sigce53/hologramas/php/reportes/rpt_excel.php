@@ -1,6 +1,15 @@
 <?php
-session_start();
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+
 session_set_cookie_params(0, "/", $_SERVER["HTTP_HOST"], 0);
+
+session_start();
 $mod=1;
 require_once(__DIR__ . "/../../../common/cfg_server.php");
 $d_s=$_POST["id_s"];
@@ -16,8 +25,8 @@ if(isset($_SESSION[$d_s]))
 		if (PHP_SAPI === 'cli')
 		die('This example should only be run from a Web Browser');
 		
-		/** Include PHPExcel */
-		require_once __DIR__ . '/../../../libs/phpExcel/PHPExcel.php';
+		/** Cargar PhpSpreadsheet vía Composer */
+		require_once __DIR__ . '/../../../vendor/autoload.php';
 		include(__DIR__ . '/../../../common/conexion.php');
 		/** DECLARACION DE VARIABLES */
 		$fecha = date("Y-m-d" );
@@ -139,10 +148,10 @@ if(isset($_SESSION[$d_s]))
 			$tot=$res->num_rows;
 			$t2=$res->field_count;
 			$letras=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC'];
-			// Create new PHPExcel object
-			$objPHPExcel = new PHPExcel();
+			// Crear nuevo objeto Spreadsheet
+			$spreadsheet = new Spreadsheet();
 			// Set document properties
-			$objPHPExcel->getProperties()->setCreator("NJGC")
+			$spreadsheet->getProperties()->setCreator("NJGC")
 			->setLastModifiedBy("AMMA")
 			->setTitle("REPORTES")
 			->setSubject("REPORTES")
@@ -154,15 +163,15 @@ if(isset($_SESSION[$d_s]))
 					'bold' => true,
 					],
 				'alignment' => [
-					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+					'horizontal' => Alignment::HORIZONTAL_CENTER,
 					],
 				'borders' => [
 					'allborders' => [
-						'style' => PHPExcel_Style_Border::BORDER_THIN,
+						'style' => Border::BORDER_THIN,
 						],
 					],
 				'fill' => [
-					'type' => PHPExcel_Style_Fill::FILL_GRADIENT_LINEAR,'rotation' => 90,
+					'type' => Fill::FILL_GRADIENT_LINEAR,'rotation' => 90,
 					'startcolor' => [
 						'argb' => 'FFA0A0A0',
 					],
@@ -178,16 +187,16 @@ if(isset($_SESSION[$d_s]))
 				],
 				'borders' => [
 					'allborders' => [
-						'style' => PHPExcel_Style_Border::BORDER_THIN,
+						'style' => Border::BORDER_THIN,
 						'color' => ['rgb' => '9DB2B3'],
 						],
 					],
 				'alignment' => [
-					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-					'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER,
+					'horizontal' => Alignment::HORIZONTAL_CENTER,
+					'vertical' => Alignment::VERTICAL_CENTER,
 				],
 				'fill' => [
-					'type' => PHPExcel_Style_Fill::FILL_SOLID,
+					'type' => Fill::FILL_SOLID,
 					'color' => ['rgb'=>'23719E'],
 				],
 			];
@@ -198,56 +207,56 @@ if(isset($_SESSION[$d_s]))
 				],
 				'borders' => [
 					'allborders' => [
-						'style' => PHPExcel_Style_Border::BORDER_THIN,
+						'style' => Border::BORDER_THIN,
 						'color' => ['rgb' => '6A8696'],
 						],
 					],
 				'alignment' => [
-					'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_RIGHT,
-					'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER,
+					'horizontal' => Alignment::HORIZONTAL_RIGHT,
+					'vertical' => Alignment::VERTICAL_CENTER,
 				],
 				'fill' => [
-					'type' => PHPExcel_Style_Fill::FILL_SOLID,
+					'type' => Fill::FILL_SOLID,
 					'color' => ['rgb'=>'2E966D'],
 				],
 			];
 				
 			//HEADER
-			$objPHPExcel->getActiveSheet()->mergeCells('D1:I1');
-			$objPHPExcel->getActiveSheet()->setCellValue('D1', 'ASOCIACIÓN DE MAGUEY Y MEZCAL ARTESANAL');
-			$objPHPExcel->getActiveSheet()->getStyle('D1')->getFont()->setSize(18);
-			$objPHPExcel->getActiveSheet()->getStyle('D1')->getFont()->setBold(true); 
-			$objPHPExcel->getActiveSheet()->getStyle('D1:I1')->getAlignment()->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
-			$objPHPExcel->getActiveSheet()->getRowDimension(1)->setRowHeight(50);
-			$objPHPExcel->getActiveSheet()->getRowDimension(2)->setRowHeight(30);
-			$objPHPExcel->getActiveSheet()->mergeCells('D2:I2');
-			$objPHPExcel->getActiveSheet()->setCellValue('D2', 'Reporte de Entrega de Hologramas');
-			$objPHPExcel->getActiveSheet()->getStyle('D2')->getFont()->setSize(13);
-			$objPHPExcel->getActiveSheet()->getStyle('D2')->getFont()->setBold(true); 
-			$objPHPExcel->getActiveSheet()->getStyle('D2:I2')->getAlignment()->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
-			$objPHPExcel->getActiveSheet()->getStyle('D2:I2')->getAlignment()->setVertical(PHPExcel_Style_Alignment::VERTICAL_CENTER);
-			$objPHPExcel->getActiveSheet()->mergeCells('D3:I3');
-			$objPHPExcel->getActiveSheet()->setCellValue('D3', $he1);
-			$objPHPExcel->getActiveSheet()->getStyle('D3')->getFont()->setSize(12);
-			$objPHPExcel->getActiveSheet()->getStyle('D3')->getFont()->setBold(true); 
-			$objPHPExcel->getActiveSheet()->getStyle('D3:I3')->getAlignment()->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
+			$spreadsheet->getActiveSheet()->mergeCells('D1:I1');
+			$spreadsheet->getActiveSheet()->setCellValue('D1', 'ASOCIACIÓN DE MAGUEY Y MEZCAL ARTESANAL');
+			$spreadsheet->getActiveSheet()->getStyle('D1')->getFont()->setSize(18);
+			$spreadsheet->getActiveSheet()->getStyle('D1')->getFont()->setBold(true); 
+			$spreadsheet->getActiveSheet()->getStyle('D1:I1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+			$spreadsheet->getActiveSheet()->getRowDimension(1)->setRowHeight(50);
+			$spreadsheet->getActiveSheet()->getRowDimension(2)->setRowHeight(30);
+			$spreadsheet->getActiveSheet()->mergeCells('D2:I2');
+			$spreadsheet->getActiveSheet()->setCellValue('D2', 'Reporte de Entrega de Hologramas');
+			$spreadsheet->getActiveSheet()->getStyle('D2')->getFont()->setSize(13);
+			$spreadsheet->getActiveSheet()->getStyle('D2')->getFont()->setBold(true); 
+			$spreadsheet->getActiveSheet()->getStyle('D2:I2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+			$spreadsheet->getActiveSheet()->getStyle('D2:I2')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+			$spreadsheet->getActiveSheet()->mergeCells('D3:I3');
+			$spreadsheet->getActiveSheet()->setCellValue('D3', $he1);
+			$spreadsheet->getActiveSheet()->getStyle('D3')->getFont()->setSize(12);
+			$spreadsheet->getActiveSheet()->getStyle('D3')->getFont()->setBold(true); 
+			$spreadsheet->getActiveSheet()->getStyle('D3:I3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 			//logotipo       
-			$objPHPExcel->getDefaultStyle()->getFont()->setName('Calibri');
-			$objPHPExcel->getDefaultStyle()->getFont()->setSize(11);     
-			$objPHPExcel->getActiveSheet()->mergeCells('B1:C2');
-			$objDrawing = new PHPExcel_Worksheet_Drawing();
+			$spreadsheet->getDefaultStyle()->getFont()->setName('Calibri');
+			$spreadsheet->getDefaultStyle()->getFont()->setSize(11);     
+			$spreadsheet->getActiveSheet()->mergeCells('B1:C2');
+			$objDrawing = new Drawing();
 			$objDrawing->setName('logo');
-			$objDrawing->setDescription('PHPExcel logo');
+			$objDrawing->setDescription('Logo AMMA');
 			$objDrawing->setPath('../../../images/logo_amma.jpg');       // filesystem reference for the image file
 			$objDrawing->setHeight(80);                 // sets the image height to 36px (overriding the actual image height); 
 			$objDrawing->setCoordinates('B1');    // pins the top-left corner of the image to cell D24
 			$objDrawing->setOffsetX(10);                // pins the top left corner of the image at an offset of 10 points horizontally to the right of the top-left corner of the cell
-			$objDrawing->setWorksheet($objPHPExcel->getActiveSheet());
+			$objDrawing->setWorksheet($spreadsheet->getActiveSheet());
 			//AGREGAR ENCABEZADO DE LA TABLA
-			$objPHPExcel->getActiveSheet()->getStyle('A'.$r_h.':N'.$r_h)->applyFromArray($styleArray2);
+			$spreadsheet->getActiveSheet()->getStyle('A'.$r_h.':N'.$r_h)->applyFromArray($styleArray2);
 				
-			$objPHPExcel->setActiveSheetIndex(0);     
-			$objPHPExcel->setActiveSheetIndex(0)
+			$spreadsheet->setActiveSheetIndex(0);     
+			$spreadsheet->setActiveSheetIndex(0)
 			->setCellValue('A'.$r_h, 'Recibo')
 			->setCellValue('B'.$r_h, 'Marca')
 			->setCellValue('C'.$r_h, 'Serie')
@@ -264,7 +273,7 @@ if(isset($_SESSION[$d_s]))
 			->setCellValue('N'.$r_h, 'Sellos Entregados'); 
 			for($x=0;$x<=$t2;$x++) {
 				$fil=$letras[$x].'2';
-				$objPHPExcel->getActiveSheet()->getStyle($fil)->getFont()->setBold(true);   
+				$spreadsheet->getActiveSheet()->getStyle($fil)->getFont()->setBold(true);   
 			}
 				
 			$x=$st_r;
@@ -350,9 +359,9 @@ if(isset($_SESSION[$d_s]))
 						$formu="=sum(".$pos_ini.":".$pos_fin.")";
 						//$formu="";
 						$pos_formu='N'.($x);
-						$objPHPExcel->setActiveSheetIndex(0)->setCellValue($pos_formu, $formu);
-						$objPHPExcel->getActiveSheet()->getStyle($pos_formu)->applyFromArray($styleArray3);
-						$objPHPExcel->getActiveSheet()->getStyle($pos_formu)->getNumberFormat()->setFormatCode("#,##0");
+						$spreadsheet->setActiveSheetIndex(0)->setCellValue($pos_formu, $formu);
+						$spreadsheet->getActiveSheet()->getStyle($pos_formu)->applyFromArray($styleArray3);
+						$spreadsheet->getActiveSheet()->getStyle($pos_formu)->getNumberFormat()->setFormatCode("#,##0");
 						if($bandera_color === 0){
 							$fill_color="DDEBF7"; 
 							$bandera_color=1;
@@ -372,22 +381,22 @@ if(isset($_SESSION[$d_s]))
 				for($i=1;$i<=14;$i++) {
 					$c=$letras[$i-1].$x;
 					$dato=$arr_fila[$i-1];
-					$objPHPExcel->setActiveSheetIndex(0)->setCellValue($c, $dato);
-					$objPHPExcel->getActiveSheet()->getColumnDimension($letras[$i-1])->setAutoSize(true);
+					$spreadsheet->setActiveSheetIndex(0)->setCellValue($c, $dato);
+					$spreadsheet->getActiveSheet()->getColumnDimension($letras[$i-1])->setAutoSize(true);
 					if($i === 14) {
-						$objPHPExcel->getActiveSheet()->getStyle($c)->getNumberFormat()->setFormatCode("#,##0");
+						$spreadsheet->getActiveSheet()->getStyle($c)->getNumberFormat()->setFormatCode("#,##0");
 					}
 				}	
-				$objPHPExcel->getActiveSheet()->getColumnDimension('B')->setAutoSize(false);
-				$objPHPExcel->getActiveSheet()->getColumnDimension('B')->setWidth(40);
+				$spreadsheet->getActiveSheet()->getColumnDimension('B')->setAutoSize(false);
+				$spreadsheet->getActiveSheet()->getColumnDimension('B')->setWidth(40);
 					
-			//$objPHPExcel->getActiveSheet()->getColumnDimension('B')->setWidth(80);
+			//$spreadsheet->getActiveSheet()->getColumnDimension('B')->setWidth(80);
 				$cell_ini='A'.$x;
 				$cell_fin='N'.$x;
-				$objPHPExcel->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getBorders()->getAllBorders()->setBorderStyle(PHPExcel_Style_Border::BORDER_THIN);
-				$objPHPExcel->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getBorders()->getAllBorders()->getColor()->setRGB('23719E');
-				$objPHPExcel->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getFill()->setFillType(PHPExcel_Style_Fill::FILL_SOLID); 
-				$objPHPExcel->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getFill()->getStartColor()->setARGB($fill_color);
+				$spreadsheet->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+				$spreadsheet->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getBorders()->getAllBorders()->getColor()->setRGB('23719E');
+				$spreadsheet->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getFill()->setFillType(Fill::FILL_SOLID); 
+				$spreadsheet->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getFill()->getStartColor()->setARGB($fill_color);
 				
 				$last_index=$new_index;
 				$x++;	
@@ -398,56 +407,56 @@ if(isset($_SESSION[$d_s]))
 			$formu = "=sum(".$pos_ini.":".$pos_fin.")";
 			//$formu="";
 			$pos_formu='N'.($x);
-			$objPHPExcel->setActiveSheetIndex(0)->setCellValue($pos_formu, $formu);
-			$objPHPExcel->getActiveSheet()->getStyle($pos_formu)->applyFromArray($styleArray3);
-			$objPHPExcel->getActiveSheet()->getStyle($pos_formu)->getNumberFormat()->setFormatCode("#,##0");
+			$spreadsheet->setActiveSheetIndex(0)->setCellValue($pos_formu, $formu);
+			$spreadsheet->getActiveSheet()->getStyle($pos_formu)->applyFromArray($styleArray3);
+			$spreadsheet->getActiveSheet()->getStyle($pos_formu)->getNumberFormat()->setFormatCode("#,##0");
 			//INMOBILIZAR LOS ENCABEZADOS
-			$objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0,6);
+			$spreadsheet->getActiveSheet()->freezePane('A7');
 			// Rename worksheet
-			$objPHPExcel->getActiveSheet()->setTitle('SellosEntregados');
+			$spreadsheet->getActiveSheet()->setTitle('SellosEntregados');
 				
 			//PARA EL RESUMEN
 			if($_POST['resumen']=='SI') {
 				$bandera_color=1;
-				$objPHPExcel->createSheet(1);
-				$objPHPExcel->setActiveSheetIndex(1);
-				$objPHPExcel->getActiveSheet()->setTitle('Resumen');
+				$spreadsheet->createSheet(1);
+				$spreadsheet->setActiveSheetIndex(1);
+				$spreadsheet->getActiveSheet()->setTitle('Resumen');
 				//HEADER
-				$objPHPExcel->getActiveSheet()->mergeCells('C1:I1');
-				$objPHPExcel->getActiveSheet()->setCellValue('C1', 'ASOCIACIÓN DE MAGUEY Y MEZCAL ARTESANAL');
-				$objPHPExcel->getActiveSheet()->getStyle('C1')->getFont()->setSize(18);
-				$objPHPExcel->getActiveSheet()->getStyle('C1')->getFont()->setBold(true); 
-				$objPHPExcel->getActiveSheet()->getStyle('C1:I1')->getAlignment()->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
-				$objPHPExcel->getActiveSheet()->getRowDimension(1)->setRowHeight(50);
-				$objPHPExcel->getActiveSheet()->getRowDimension(2)->setRowHeight(30);
-				$objPHPExcel->getActiveSheet()->mergeCells('C2:I2');
-				$objPHPExcel->getActiveSheet()->setCellValue('C2', 'Resumen de Entrega de Hologramas');
-				$objPHPExcel->getActiveSheet()->getStyle('C2')->getFont()->setSize(13);
-				$objPHPExcel->getActiveSheet()->getStyle('C2')->getFont()->setBold(true); 
-				$objPHPExcel->getActiveSheet()->getStyle('C2:I2')->getAlignment()->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
-				$objPHPExcel->getActiveSheet()->getStyle('C2:I2')->getAlignment()->setVertical(PHPExcel_Style_Alignment::VERTICAL_CENTER);
-				$objPHPExcel->getActiveSheet()->mergeCells('C3:I3');
-				$objPHPExcel->getActiveSheet()->setCellValue('C3', $he1);
-				$objPHPExcel->getActiveSheet()->getStyle('C3')->getFont()->setSize(12);
-				$objPHPExcel->getActiveSheet()->getStyle('C3')->getFont()->setBold(true); 
-				$objPHPExcel->getActiveSheet()->getStyle('C3:I3')->getAlignment()->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
+				$spreadsheet->getActiveSheet()->mergeCells('C1:I1');
+				$spreadsheet->getActiveSheet()->setCellValue('C1', 'ASOCIACIÓN DE MAGUEY Y MEZCAL ARTESANAL');
+				$spreadsheet->getActiveSheet()->getStyle('C1')->getFont()->setSize(18);
+				$spreadsheet->getActiveSheet()->getStyle('C1')->getFont()->setBold(true); 
+				$spreadsheet->getActiveSheet()->getStyle('C1:I1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+				$spreadsheet->getActiveSheet()->getRowDimension(1)->setRowHeight(50);
+				$spreadsheet->getActiveSheet()->getRowDimension(2)->setRowHeight(30);
+				$spreadsheet->getActiveSheet()->mergeCells('C2:I2');
+				$spreadsheet->getActiveSheet()->setCellValue('C2', 'Resumen de Entrega de Hologramas');
+				$spreadsheet->getActiveSheet()->getStyle('C2')->getFont()->setSize(13);
+				$spreadsheet->getActiveSheet()->getStyle('C2')->getFont()->setBold(true); 
+				$spreadsheet->getActiveSheet()->getStyle('C2:I2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+				$spreadsheet->getActiveSheet()->getStyle('C2:I2')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+				$spreadsheet->getActiveSheet()->mergeCells('C3:I3');
+				$spreadsheet->getActiveSheet()->setCellValue('C3', $he1);
+				$spreadsheet->getActiveSheet()->getStyle('C3')->getFont()->setSize(12);
+				$spreadsheet->getActiveSheet()->getStyle('C3')->getFont()->setBold(true); 
+				$spreadsheet->getActiveSheet()->getStyle('C3:I3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 				//logotipo       
-				$objPHPExcel->getDefaultStyle()->getFont()->setName('Calibri');
-				$objPHPExcel->getDefaultStyle()->getFont()->setSize(11);
-				$objDrawing = new PHPExcel_Worksheet_Drawing();
+				$spreadsheet->getDefaultStyle()->getFont()->setName('Calibri');
+				$spreadsheet->getDefaultStyle()->getFont()->setSize(11);
+				$objDrawing = new Drawing();
 				$objDrawing->setName('logo');
-				$objDrawing->setDescription('PHPExcel logo');
+				$objDrawing->setDescription('Logo AMMA');
 				$objDrawing->setPath('../../../images/logo_amma.jpg');       // filesystem reference for the image file
 				$objDrawing->setHeight(80);                 // sets the image height to 36px (overriding the actual image height); 
 				$objDrawing->setCoordinates('B1');    // pins the top-left corner of the image to cell D24
 				$objDrawing->setOffsetX(10);                // pins the top left corner of the image at an offset of 10 points horizontally to the right of the top-left corner of the cell
-				$objDrawing->setWorksheet($objPHPExcel->getActiveSheet());
+				$objDrawing->setWorksheet($spreadsheet->getActiveSheet());
 				//AGREGAR ENCABEZADO DE LA TABLA
-				$objPHPExcel->setActiveSheetIndex(1);
+				$spreadsheet->setActiveSheetIndex(1);
 				$r_h=6;
-				$objPHPExcel->getActiveSheet()->getStyle('B'.$r_h.':D'.$r_h)->applyFromArray($styleArray2);
-				$objPHPExcel->setActiveSheetIndex(1);     
-				$objPHPExcel->setActiveSheetIndex(1)->setCellValue('B'.$r_h, 'Marca')->setCellValue('C'.$r_h, 'Serie')->setCellValue('D'.$r_h, 'Cantidad'); 				
+				$spreadsheet->getActiveSheet()->getStyle('B'.$r_h.':D'.$r_h)->applyFromArray($styleArray2);
+				$spreadsheet->setActiveSheetIndex(1);     
+				$spreadsheet->setActiveSheetIndex(1)->setCellValue('B'.$r_h, 'Marca')->setCellValue('C'.$r_h, 'Serie')->setCellValue('D'.$r_h, 'Cantidad'); 				
 					
 				$res_sum=$conexion->query($sql_sum);
 				//echo $sql_sum;
@@ -466,18 +475,18 @@ if(isset($_SESSION[$d_s]))
 						for($i=2;$i<=4;$i++) {
 							$c=$letras[$i-1].$x;
 							$dato=mb_convert_encoding($row_sum[$i-1], 'UTF-8', 'ISO-8859-1');
-							$objPHPExcel->setActiveSheetIndex(1)->setCellValue($c, $dato);
-							$objPHPExcel->getActiveSheet()->getColumnDimension($letras[$i-1])->setAutoSize(true);
+							$spreadsheet->setActiveSheetIndex(1)->setCellValue($c, $dato);
+							$spreadsheet->getActiveSheet()->getColumnDimension($letras[$i-1])->setAutoSize(true);
 							if($i === 4) {
-								$objPHPExcel->getActiveSheet()->getStyle($c)->getNumberFormat()->setFormatCode("#,##0");
+								$spreadsheet->getActiveSheet()->getStyle($c)->getNumberFormat()->setFormatCode("#,##0");
 							}
 						}
 						$cell_ini='B'.$x;
 						$cell_fin='D'.$x;
-						$objPHPExcel->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getBorders()->getAllBorders()->setBorderStyle(PHPExcel_Style_Border::BORDER_THIN);
-						$objPHPExcel->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getBorders()->getAllBorders()->getColor()->setRGB('23719E');
-						$objPHPExcel->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getFill()->setFillType(PHPExcel_Style_Fill::FILL_SOLID); 
-						$objPHPExcel->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getFill()->getStartColor()->setARGB($fill_color);
+						$spreadsheet->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+						$spreadsheet->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getBorders()->getAllBorders()->getColor()->setRGB('23719E');
+						$spreadsheet->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getFill()->setFillType(Fill::FILL_SOLID); 
+						$spreadsheet->getActiveSheet()->getStyle($cell_ini.":".$cell_fin)->getFill()->getStartColor()->setARGB($fill_color);
 						$x++;
 					}
 					$pos_ini='D7';
@@ -485,19 +494,19 @@ if(isset($_SESSION[$d_s]))
 					$formu="=sum(".$pos_ini.":".$pos_fin.")";
 					//$formu="";
 					$pos_formu='D'.($x);
-					$objPHPExcel->setActiveSheetIndex(1)->setCellValue($pos_formu, $formu);
-					$objPHPExcel->getActiveSheet()->getStyle($pos_formu)->applyFromArray($styleArray3);
-					$objPHPExcel->getActiveSheet()->getStyle($pos_formu)->getNumberFormat()->setFormatCode("#,##0");
+					$spreadsheet->setActiveSheetIndex(1)->setCellValue($pos_formu, $formu);
+					$spreadsheet->getActiveSheet()->getStyle($pos_formu)->applyFromArray($styleArray3);
+					$spreadsheet->getActiveSheet()->getStyle($pos_formu)->getNumberFormat()->setFormatCode("#,##0");
 				}
 				   
 			}
 			// Set active sheet index to the first sheet, so Excel opens this as the first sheet
-			$objPHPExcel->setActiveSheetIndex(0);
+			$spreadsheet->setActiveSheetIndex(0);
 			// Redirect output to a client’s web browser (Excel2007)
 			//header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 			//header('Content-Disposition: attachment;filename="ReporteGral.xlsx"');
 			//header('Cache-Control: max-age=0');
-			$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+			$objWriter = IOFactory::createWriter($spreadsheet, 'Xlsx');
 			$objWriter->save('../../tmp_excel/'.$file_name);
 			$dir_file="http://".$svr_dir."/hologramas/tmp_excel/".$file_name;				
 			echo json_encode(['status' => 'OK','msj'=>$dir_file, 'sql'=>$consulta]);

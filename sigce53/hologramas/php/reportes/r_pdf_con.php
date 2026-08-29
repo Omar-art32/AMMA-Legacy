@@ -1,5 +1,5 @@
 <?php
-//require('../../fpdf/fpdf.php');
+// FPDF se carga automáticamente vía Composer (setasign/fpdf) dentro de mc_table.php
 require(__DIR__ . '/mc_table.php');
 require_once(__DIR__ . '/../../../common/cfg_server.php');
 include (__DIR__ . "/../../../common/conexion.php");

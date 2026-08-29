@@ -604,11 +604,11 @@ function rep_pdf()
 				url: "php/reportes/rpt_pdf.php",
 				contentType: "application/x-www-form-urlencoded;charset=UTF-8",
 				data: "cliente="+cliente_f+"&tipo="+tipo_f+"&marca="+marca_f+"&tipo_m="+tipo_m+"&fecha1="+fecha_1+"&fecha2="+fecha_2+"&estado="+edo_f+"&categoria="+cat_f+"&resumen="+c_resumen,
-				datatype: 'json',
+				dataType: 'json',
 				success: function(response){
 					//alert(response);
 					destroy_progress(1);
-					var j_res=JSON.parse(response);
+					var j_res=response;
 					if(j_res.status==='correcto')
 					{
 					   var dir=j_res.msj;
@@ -685,7 +685,7 @@ function rep_excel()
 				  success: function(response){
 					  destroy_progress(1);
 					 // alert(response);
-					  var j_res=JSON.parse(response);
+					  var j_res=response;
 					  if(j_res.status==='OK')
 					  {
 						 var dir=j_res.msj;

@@ -1,6 +1,5 @@
 <?php
-//require('../../fpdf/fpdf.php');
-
+// FPDF se carga automáticamente vía Composer (setasign/fpdf) dentro de mc_table.php
 require(__DIR__ . '/mc_table.php');
 require_once(__DIR__ . '/../../../common/cfg_server.php');
 include(__DIR__ . '/../../../common/conexion.php');
@@ -169,16 +168,13 @@ $num_res=$result->num_rows;
 //iniciamos la creacion del pdf
 //$file_name=$cliente.'_per_mca.pdf';	
 //$num_res=0;
-$pdf = new PDF_MC_Table('L', 'mm', 'Letter');
+$pdf=new PDF_MC_Table();
 $pdf->AliasNbPages();
-$pdf->SetDisplayMode(100, 'continuous'); 
-
-// 2. En AddPage() déjalo únicamente con 'L' o 'Landscape'
-$pdf->AddPage('L');  
-
-$pdf->SetXY(35, 22);
-$pdf->SetDrawColor(214, 214, 214);
-$y = 42;
+$pdf->SetDisplayMode(100,'continuous');	
+$pdf->AddPage('L','Letter');  
+$pdf->SetXY(35,22);
+$pdf->SetDrawColor(214,214,214);
+$y=42;
 
   if($num_res>0)
   {
