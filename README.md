@@ -119,21 +119,6 @@ http://localhost/sigce53/
 
 ---
 
-## Reportes Excel
-
-El sistema genera los reportes Excel dentro de:
-
-```text
-sigce53/maguey/tmp_excel/
-```
-
-La carpeta ya está incluida en el repositorio mediante `.gitkeep`.
-
-Los archivos `.xlsx` generados son temporales y están excluidos de Git mediante `.gitignore`.
-
-Por lo tanto, **no es necesario crear manualmente la carpeta `tmp_excel` después de clonar el repositorio**.
-
----
 
 ## Credenciales de la base de datos
 
@@ -173,23 +158,3 @@ docker compose up -d
 > Los datos de MariaDB se almacenan en el volumen Docker `mariadb_data`, por lo que `docker compose down` no elimina la base de datos.
 
 ---
-
-## Estructura principal
-
-```text
-AMMA-Legacy/
-├── docker-compose.yml
-├── Dockerfile
-├── amma.sql
-└── sigce53/
-    ├── composer.json
-    ├── composer.lock
-    ├── localidades.sql
-    ├── rv_produccion_ensamble.sql
-    ├── vendor/
-    └── maguey/
-        └── tmp_excel/
-            └── .gitkeep
-```
-
-> `vendor/` se genera mediante Composer y no se almacena en el repositorio.
